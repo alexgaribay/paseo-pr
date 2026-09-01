@@ -91,7 +91,7 @@ export function CountBadge(props: {
         borderColor: props.theme.colors.border,
       }}
     >
-      <Text style={{ color: props.theme.colors.statusWarning, fontSize: 11, fontWeight: "500" }}>{label}</Text>
+      <Text style={{ color: props.theme.colors.foreground, fontSize: 11, fontWeight: "500" }}>{label}</Text>
     </View>
   );
   if (!props.onPress) return body;

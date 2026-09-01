@@ -24,7 +24,11 @@ import {
   refreshIntervalMs,
 } from "./settings.shared";
 import { SettingsPanel } from "./settings-panel.client";
-import { ensureSidebarBadgePolling, setSidebarBadgePollInterval } from "./sidebar-badge.client";
+import {
+  ensureSidebarBadgePolling,
+  setSidebarBadgePollInterval,
+  setSidebarBadgeTheme,
+} from "./sidebar-badge.client";
 import { createPullRequestWorkspace, createRepoWorkspace } from "./workspace-from-pr.client";
 
 type OpenFilter = "repository" | "status" | "author" | "assignee" | "waiting" | null;
@@ -71,6 +75,13 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
       }),
     [],
   );
+  useEffect(() => {
+    setSidebarBadgeTheme({
+      foreground: theme.colors.foreground,
+      background: theme.colors.surface2,
+      border: theme.colors.border,
+    });
+  }, [theme.colors.border, theme.colors.foreground, theme.colors.surface2]);
   useEffect(() => {
     return ensureSidebarBadgePolling(async () => {
       const result = await fetchAttention({});
