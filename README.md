@@ -2,21 +2,46 @@
 
 Paseo plugin that lists GitHub pull requests for registered projects and opens isolated workspaces from them.
 
-Requires the [GitHub CLI](https://cli.github.com/) (`gh`) on the daemon machine, authenticated with `gh auth login`. The plugin looks for `gh` on the process PATH, then Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), `~/.local/bin`, and the login shell PATH so GUI-launched Paseo still finds it. Override that from **Pull requests** with **GitHub CLI path** (stored under `$PASEO_HOME/plugin-data/paseo-pr/settings.json`). Settings → Plugins cannot host plugin config today.
+Requires the [GitHub CLI](https://cli.github.com/) (`gh`) on the **daemon** machine, authenticated with `gh auth login`. The plugin looks for `gh` on the process PATH, then Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), `~/.local/bin`, and the login shell PATH so GUI-launched Paseo still finds it. Override that from **Pull requests** with **GitHub CLI path** (stored under `$PASEO_HOME/plugin-data/paseo-pr/settings.json`). Settings → Plugins cannot host plugin config today.
+
+Plugins are installed per daemon. The path or Git clone lives on the host running the daemon, not on the machine where you open the Paseo app.
 
 ## Install
 
-Enable plugins in Paseo (**Settings → Plugins**), then:
+On the target host, open **Settings → Plugins** and turn on **Enable plugins**.
+
+Paseo compiles the plugin itself and supplies React, React Native, TanStack Query, Zod, and `@getpaseo/plugin` at runtime. Do not run `npm install` just to load the plugin; that is only for local typechecking.
+
+### Directory (Paseo 0.6+)
+
+Checkout this repository to an absolute path **on the daemon machine**, then:
 
 ```bash
-npm install
-npm run typecheck
 paseo plugin install /absolute/path/to/paseo-pr
+paseo plugin ls
 ```
 
-Reload after edits:
+If you pass `--host`, that path must already exist on the remote daemon. A path from your laptop will not be copied over.
+
+### Git (Paseo 0.7+)
+
+Git plugin install needs daemon feature `pluginGitManagement` (Paseo 0.7). A 0.6 daemon answers `Update the host to install and update Git plugins.` Update Paseo on that host, then:
 
 ```bash
+paseo plugin add alexgaribay/paseo-pr
+# or
+paseo plugin add git@github.com:alexgaribay/paseo-pr.git --host <daemon>
+paseo plugin ls
+```
+
+The daemon user must be able to clone the repository. This repo is private, so the host needs GitHub credentials (`gh auth login`, a deploy key, or SSH agent forwarding). Making the repository public is the other option.
+
+Confirm the plugin is `running`. If it is not, check `paseo plugin logs paseo-pr` on that host.
+
+Reload after edits to a directory install:
+
+```bash
+npm install          # optional, local typecheck only
 npm run typecheck
 paseo plugin reload paseo-pr
 ```
@@ -24,7 +49,7 @@ paseo plugin reload paseo-pr
 ## Use
 
 - Bottom sidebar **Pull requests** lists PRs for Paseo projects whose git remote is GitHub.
-- Filter by project, state, author, and search.
+- Filter with **Repository**, **Status**, and **Author** dropdowns (checkbox items) plus search.
 - **Open workspace** on a PR creates a worktree checkout of that change request.
 - **New workspace** on a repo creates a worktree branched from `origin/HEAD`.
 - Command Center (**⌘K** / **Ctrl+K**) → **Open GitHub PR** looks up a PR by number and creates the same workspace.
