@@ -1,7 +1,7 @@
 import { Icon } from "@getpaseo/plugin/react-native";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useMemo } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View, type GestureResponderEvent } from "react-native";
 import {
   formatAssignees,
   formatPullRequestStatus,
@@ -70,16 +70,16 @@ function TableRow(props: {
     .join(" · ");
 
   return (
-    <View style={styles.row}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Show pull request ${pullRequest.number}`}
-        onPress={() => props.onShow(pullRequest)}
-        style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
-          styles.body,
-          (hovered || pressed) && styles.rowHover,
-        ]}
-      >
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Show pull request ${pullRequest.number}`}
+      onPress={() => props.onShow(pullRequest)}
+      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
+        styles.row,
+        (hovered || pressed) && styles.rowHover,
+      ]}
+    >
+      <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text style={styles.number}>#{pullRequest.number}</Text>
           <Text style={styles.title} numberOfLines={props.compact ? 2 : 1}>
@@ -89,28 +89,62 @@ function TableRow(props: {
         <Text style={styles.meta} numberOfLines={1}>
           {meta}
         </Text>
-      </Pressable>
+      </View>
       <View style={styles.trailing}>
         {pullRequest.waitingOnViewer ? (
           <StatusBadge theme={props.theme} label="Awaiting Review" tone="warning" />
         ) : (
           <StatusBadge theme={props.theme} label={status} tone={pullRequestStatusTone(pullRequest)} />
         )}
-        <Pressable
-          accessibilityRole="button"
+        <RowButton
+          theme={props.theme}
+          styles={styles}
+          icon="Eye"
+          label="Show"
+          accessibilityLabel={`Show pull request ${pullRequest.number}`}
+          onPress={() => props.onShow(pullRequest)}
+        />
+        <RowButton
+          theme={props.theme}
+          styles={styles}
+          icon="FolderGit2"
+          label="Open"
           accessibilityLabel={`Create workspace for pull request ${pullRequest.number}`}
           disabled={props.opening}
           onPress={() => props.onOpenWorkspace(pullRequest)}
-          style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
-            styles.actionInner,
-            (hovered || pressed) && styles.rowHover,
-          ]}
-        >
-          <Icon name="FolderGit2" size={14} color={props.theme.colors.foregroundMuted} />
-          {props.compact ? null : <Text style={styles.actionLabel}>Open</Text>}
-        </Pressable>
+        />
       </View>
-    </View>
+    </Pressable>
+  );
+}
+
+function RowButton(props: {
+  theme: PluginTheme;
+  styles: ReturnType<typeof tableStyles>;
+  icon: string;
+  label: string;
+  accessibilityLabel: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={props.accessibilityLabel}
+      disabled={props.disabled}
+      onPress={(event: GestureResponderEvent) => {
+        event.stopPropagation();
+        props.onPress();
+      }}
+      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
+        props.styles.button,
+        (hovered || pressed) && props.styles.buttonHover,
+        props.disabled ? props.styles.buttonDisabled : null,
+      ]}
+    >
+      <Icon name={props.icon} size={14} color={props.theme.colors.foreground} />
+      <Text style={props.styles.buttonLabel}>{props.label}</Text>
+    </Pressable>
   );
 }
 
@@ -121,7 +155,7 @@ function tableStyles(theme: PluginTheme, compact: boolean) {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       gap: 12,
-      minHeight: compact ? 52 : 44,
+      minHeight: compact ? 56 : 48,
       paddingHorizontal: compact ? 16 : 24,
       paddingVertical: compact ? 10 : 8,
       borderBottomWidth: 1,
@@ -133,9 +167,29 @@ function tableStyles(theme: PluginTheme, compact: boolean) {
     number: { color: theme.colors.foregroundMuted, fontSize: 14, fontWeight: "500" as const },
     title: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const, flex: 1 },
     meta: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
-    trailing: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8, flexShrink: 0 },
-    actionInner: { flexDirection: "row" as const, alignItems: "center" as const, gap: 4, paddingHorizontal: 4 },
-    actionLabel: { color: theme.colors.foregroundMuted, fontSize: 12 },
+    trailing: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      flexWrap: "wrap" as const,
+      justifyContent: "flex-end" as const,
+      gap: 8,
+      flexShrink: 0,
+    },
+    button: {
+      minHeight: 32,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface2,
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 6,
+    },
+    buttonHover: { backgroundColor: theme.colors.surface1 },
+    buttonDisabled: { opacity: 0.5 },
+    buttonLabel: { color: theme.colors.foreground, fontSize: 12, fontWeight: "500" as const },
     empty: { paddingHorizontal: compact ? 16 : 24, paddingVertical: compact ? 28 : 40 },
     emptyText: { color: theme.colors.foregroundMuted, fontSize: 14 },
   };
