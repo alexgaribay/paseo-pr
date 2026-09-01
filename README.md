@@ -49,9 +49,9 @@ paseo plugin reload paseo-pr
 ## Use
 
 - Bottom sidebar **Pull requests** lists PRs for Paseo projects whose git remote is GitHub.
-- Filter with **Repository**, **Status**, **Author**, **Assignee**, and **Waiting** (checkbox items) plus search.
+- Filter with **Repository**, **Status**, **Author**, **Assignee**, and **Awaiting Review** (checkbox items) plus search.
 - **Assignee: Me** lists PRs assigned to the signed-in GitHub user.
-- **Waiting: Me** lists open PRs that need you: review requested, or your PR with changes requested.
+- **Awaiting Review: Me** lists open PRs that need you: review requested, or your PR with changes requested.
 - The sidebar **Pull requests** item shows a count of those waiting PRs (desktop/web). Zero hides the badge. The count starts after the inbox is opened once, then refreshes on the interval from **Settings** (default 5 minutes).
 - **Settings** on the inbox configures background refresh (Off, 1, 2, 5, 10, 15, or 30 minutes) and the GitHub CLI path. The open inbox list uses the same interval.
 - **Open workspace** on a PR creates a worktree checkout of that change request.

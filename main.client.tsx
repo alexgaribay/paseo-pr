@@ -401,7 +401,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
             <FilterDropdown
               theme={theme}
               compact={layout.compact}
-              label="Waiting"
+              label="Awaiting Review"
               items={PEOPLE}
               selectedIds={[waiting]}
               open={openFilter === "waiting"}

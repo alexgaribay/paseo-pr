@@ -90,7 +90,7 @@ function TableRow(props: {
       </View>
       <View style={styles.trailing}>
         {pullRequest.waitingOnViewer ? (
-          <StatusBadge theme={props.theme} label="Waiting" tone="warning" />
+          <StatusBadge theme={props.theme} label="Awaiting Review" tone="warning" />
         ) : (
           <StatusBadge theme={props.theme} label={status} tone={pullRequestStatusTone(pullRequest)} />
         )}
