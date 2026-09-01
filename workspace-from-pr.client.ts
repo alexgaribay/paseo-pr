@@ -1,7 +1,9 @@
-import type { PaseoApi } from "@getpaseo/client";
+import { usePaseo } from "@getpaseo/plugin";
+
+type Paseo = ReturnType<typeof usePaseo>;
 
 export async function createPullRequestWorkspace(input: {
-  paseo: PaseoApi;
+  paseo: Paseo;
   rootPath: string;
   number: number;
   title: string;
@@ -23,7 +25,7 @@ export async function createPullRequestWorkspace(input: {
 }
 
 export async function createRepoWorkspace(input: {
-  paseo: PaseoApi;
+  paseo: Paseo;
   rootPath: string;
   title: string;
 }): Promise<{ workspaceId: string }> {
