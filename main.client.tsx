@@ -129,6 +129,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const projectsQuery = useQuery({
     queryKey: ["pr.projects"],
     queryFn: async () => (await fetchProjects({})).projects,
+    refetchInterval: refreshMs,
   });
   const listQuery = useQuery({
     queryKey: ["pr.list", projectIds, states, author, assignee, waiting, search],
@@ -304,6 +305,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
 
   function refetchAll() {
     void statusQuery.refetch();
+    void projectsQuery.refetch();
     void listQuery.refetch();
     void attentionQuery.refetch();
     void workspacesQuery.refetch();
@@ -515,12 +517,25 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
           </Text>
           <Text style={styles.muted}>{unavailable.message}</Text>
         </View>
+      ) : projectsQuery.isError ? (
+        <View style={styles.empty}>
+          <Text style={styles.danger}>Could not load GitHub projects.</Text>
+          <Text style={styles.muted}>
+            {projectsQuery.error instanceof Error ? projectsQuery.error.message : "The plugin failed to list registered projects."}
+          </Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Retry loading GitHub projects" onPress={refetchAll} style={styles.actionQuiet}>
+            <Text style={styles.actionQuietLabel}>Try again</Text>
+          </Pressable>
+        </View>
       ) : projects.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.muted}>
             No registered Paseo projects resolve to a GitHub remote. Add a GitHub checkout as a project, then reopen this
             surface.
           </Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Retry loading GitHub projects" onPress={refetchAll} style={styles.actionQuiet}>
+            <Text style={styles.actionQuietLabel}>Try again</Text>
+          </Pressable>
         </View>
       ) : listQuery.isLoading ? (
         <PrTableSkeleton theme={theme} compact={layout.compact} />

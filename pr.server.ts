@@ -17,7 +17,14 @@ export async function handlePrStatus(_input: Record<string, never>) {
 export async function handlePrProjects(_input: Record<string, never>, context: PluginHandlerContext) {
   const projects = await listResolvedGithubProjects(context);
   return {
-    projects: projects.map(({ github: _github, ...project }) => project),
+    projects: projects.map((project) => ({
+      projectId: project.projectId,
+      displayName: project.displayName,
+      host: project.host,
+      owner: project.owner,
+      repo: project.repo,
+      rootPath: project.rootPath,
+    })),
   };
 }
 
