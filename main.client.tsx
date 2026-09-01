@@ -1,7 +1,7 @@
 import { usePaseo, useRpc, type PluginSurfaceProps } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { FilterDropdown, selectedSummary, toggleSelectedId } from "./filter-dropdown.client";
 import { CountBadge, isPersonFilter, isPullRequestState } from "./inbox-helpers.client";
@@ -18,6 +18,7 @@ import {
   type PullRequestPersonFilter,
   type PullRequestState,
 } from "./pr.shared";
+import { subscribeInboxFocus } from "./search-pr-request.client";
 import {
   DEFAULT_REFRESH_INTERVAL_MINUTES,
   prSettingsGet,
@@ -65,6 +66,8 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const [openByNumber, setOpenByNumber] = useState(false);
   const [openPrNumber, setOpenPrNumber] = useState<number | null>(null);
   const [openPrAutoSubmit, setOpenPrAutoSubmit] = useState(false);
+  const [searchFocusToken, setSearchFocusToken] = useState(0);
+  const searchInputRef = useRef<TextInput>(null);
 
   useEffect(
     () =>
@@ -75,6 +78,22 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
       }),
     [],
   );
+  useEffect(
+    () =>
+      subscribeInboxFocus(() => {
+        setPane("inbox");
+        setOpenFilter(null);
+        setSearchFocusToken((token) => token + 1);
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (searchFocusToken === 0 || pane !== "inbox") return;
+    const frame = requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pane, searchFocusToken]);
   useEffect(() => {
     setSidebarBadgeTheme({
       foreground: theme.colors.foreground,
@@ -400,6 +419,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
               }
             />
             <TextInput
+              ref={searchInputRef}
               value={search}
               onChangeText={setSearch}
               placeholder="Search"

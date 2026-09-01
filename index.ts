@@ -1,10 +1,8 @@
 import type { PluginContext } from "@getpaseo/plugin";
-import { readCommandCenterQuery } from "./command-center-query.client";
 import { MainSurface } from "./main.client";
-import { requestOpenPrModal } from "./open-pr-request.client";
+import { requestInboxFocus } from "./search-pr-request.client";
 import { handlePrAttention, handlePrList, handlePrProjects, handlePrStatus, handlePrView } from "./pr.server";
 import { prAttention, prList, prProjects, prStatus, prView } from "./pr.shared";
-import { commandCenterDigitKeyword, parsePullRequestNumber } from "./pr-query.shared";
 import { handleSettingsGet, handleSettingsSet } from "./settings.server";
 import { prSettingsGet, prSettingsSet } from "./settings.shared";
 
@@ -24,15 +22,14 @@ export default function contribute(plugin: PluginContext) {
     surface: "main",
   });
   plugin.addCommandCenterItem({
-    id: "open-github-pr",
-    title: "Open GitHub PR",
-    icon: "GitPullRequest",
-    keywords: ["pr", "pull request", "github", "#", "pull", commandCenterDigitKeyword()],
+    id: "search-for-pr",
+    title: "Search for PR",
+    icon: "Search",
+    keywords: ["search", "pr", "pull request", "github"],
     context: "global",
     onSelect({ openSurface }) {
-      const number = parsePullRequestNumber(readCommandCenterQuery());
       openSurface("main");
-      requestOpenPrModal({ number, autoSubmit: number !== null });
+      requestInboxFocus();
     },
   });
   return () => {};
