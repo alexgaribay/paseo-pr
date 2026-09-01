@@ -22,7 +22,7 @@ export const githubProjectSchema = z.object({
 });
 
 export const pullRequestStateSchema = z.enum(["open", "closed", "merged"]);
-export const pullRequestAuthorFilterSchema = z.enum(["anyone", "me"]);
+export const pullRequestPersonFilterSchema = z.enum(["anyone", "me"]);
 
 export const pullRequestSchema = z.object({
   projectId: z.string(),
@@ -34,16 +34,20 @@ export const pullRequestSchema = z.object({
   url: z.string(),
   state: z.string(),
   author: z.string(),
+  assignees: z.array(z.string()),
   isDraft: z.boolean(),
   updatedAt: z.string(),
   reviewDecision: z.string().nullable(),
   headRefName: z.string().nullable(),
+  waitingOnViewer: z.boolean(),
 });
 
 export const listPullRequestsInputSchema = z.object({
   projectIds: z.array(z.string()).optional(),
   states: z.array(pullRequestStateSchema).default(["open"]),
-  author: pullRequestAuthorFilterSchema.default("anyone"),
+  author: pullRequestPersonFilterSchema.default("anyone"),
+  assignee: pullRequestPersonFilterSchema.default("anyone"),
+  waiting: pullRequestPersonFilterSchema.default("anyone"),
   search: z.string().optional(),
   limit: z.number().int().positive().max(100).default(30),
 });
@@ -90,6 +94,15 @@ export const listGithubProjectsOutputSchema = z.object({
   projects: z.array(githubProjectSchema),
 });
 
+export const attentionOutputSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("ok"),
+    count: z.number().int().nonnegative(),
+  }),
+  unavailableSchema,
+  errorSchema,
+]);
+
 export const prStatus = defineRpc({
   name: "pr.status",
   input: z.object({}),
@@ -114,11 +127,18 @@ export const prView = defineRpc({
   output: viewPullRequestOutputSchema,
 });
 
+export const prAttention = defineRpc({
+  name: "pr.attention",
+  input: z.object({}),
+  output: attentionOutputSchema,
+});
+
 export type GhStatus = z.infer<typeof ghStatusSchema>;
 export type GithubProject = z.infer<typeof githubProjectSchema>;
 export type PullRequest = z.infer<typeof pullRequestSchema>;
 export type PullRequestState = z.infer<typeof pullRequestStateSchema>;
-export type PullRequestAuthorFilter = z.infer<typeof pullRequestAuthorFilterSchema>;
+export type PullRequestPersonFilter = z.infer<typeof pullRequestPersonFilterSchema>;
 export type ListPullRequestsInput = z.infer<typeof listPullRequestsInputSchema>;
 export type ListPullRequestsOutput = z.infer<typeof listPullRequestsOutputSchema>;
 export type ViewPullRequestOutput = z.infer<typeof viewPullRequestOutputSchema>;
+export type AttentionOutput = z.infer<typeof attentionOutputSchema>;

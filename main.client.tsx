@@ -5,22 +5,24 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { FilterDropdown, selectedSummary, toggleSelectedId } from "./filter-dropdown.client";
 import { GhPathField } from "./gh-path-field.client";
-import { isAuthorFilter, isPullRequestState } from "./inbox-helpers.client";
+import { CountBadge, isPersonFilter, isPullRequestState } from "./inbox-helpers.client";
 import { OpenPrModal } from "./open-pr-modal.client";
 import { subscribeOpenPrModal } from "./open-pr-request.client";
 import { PrTable } from "./pr-table.client";
 import {
+  prAttention,
   prList,
   prProjects,
   prStatus,
   type GithubProject,
   type PullRequest,
-  type PullRequestAuthorFilter,
+  type PullRequestPersonFilter,
   type PullRequestState,
 } from "./pr.shared";
+import { ensureSidebarBadgePolling } from "./sidebar-badge.client";
 import { createPullRequestWorkspace, createRepoWorkspace } from "./workspace-from-pr.client";
 
-type OpenFilter = "repository" | "status" | "author" | null;
+type OpenFilter = "repository" | "status" | "author" | "assignee" | "waiting" | null;
 
 const STATES: { id: PullRequestState; label: string }[] = [
   { id: "open", label: "Open" },
@@ -28,7 +30,7 @@ const STATES: { id: PullRequestState; label: string }[] = [
   { id: "merged", label: "Merged" },
 ];
 
-const AUTHORS: { id: PullRequestAuthorFilter; label: string }[] = [
+const PEOPLE: { id: PullRequestPersonFilter; label: string }[] = [
   { id: "anyone", label: "Anyone" },
   { id: "me", label: "Me" },
 ];
@@ -39,15 +41,24 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const fetchStatus = useRpc(prStatus);
   const fetchProjects = useRpc(prProjects);
   const fetchPullRequests = useRpc(prList);
+  const fetchAttention = useRpc(prAttention);
 
   const [projectIds, setProjectIds] = useState<string[]>([]);
   const [states, setStates] = useState<PullRequestState[]>(["open"]);
-  const [author, setAuthor] = useState<PullRequestAuthorFilter>("anyone");
+  const [author, setAuthor] = useState<PullRequestPersonFilter>("anyone");
+  const [assignee, setAssignee] = useState<PullRequestPersonFilter>("anyone");
+  const [waiting, setWaiting] = useState<PullRequestPersonFilter>("anyone");
   const [search, setSearch] = useState("");
   const [openFilter, setOpenFilter] = useState<OpenFilter>(null);
   const [openByNumber, setOpenByNumber] = useState(false);
 
   useEffect(() => subscribeOpenPrModal(() => setOpenByNumber(true)), []);
+  useEffect(() => {
+    return ensureSidebarBadgePolling(async () => {
+      const result = await fetchAttention({});
+      return result.kind === "ok" ? result.count : 0;
+    });
+  }, [fetchAttention]);
 
   const statusQuery = useQuery({
     queryKey: ["pr.status"],
@@ -58,15 +69,23 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
     queryFn: async () => (await fetchProjects({})).projects,
   });
   const listQuery = useQuery({
-    queryKey: ["pr.list", projectIds, states, author, search],
+    queryKey: ["pr.list", projectIds, states, author, assignee, waiting, search],
     queryFn: () =>
       fetchPullRequests({
         projectIds: projectIds.length > 0 ? projectIds : undefined,
         states,
         author,
+        assignee,
+        waiting,
         search: search.trim() || undefined,
       }),
     enabled: statusQuery.data?.kind === "ok",
+  });
+  const attentionQuery = useQuery({
+    queryKey: ["pr.attention"],
+    queryFn: () => fetchAttention({}),
+    enabled: statusQuery.data?.kind === "ok",
+    refetchInterval: 60_000,
   });
 
   const styles = useMemo(() => {
@@ -78,6 +97,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
       color: theme.colors.foreground,
       borderRadius: 8,
       paddingHorizontal: 12,
+      fontSize: 14,
     };
     return {
       screen: { flex: 1, backgroundColor: theme.colors.surface0 },
@@ -92,39 +112,37 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
       header: {
         zIndex: 30,
         paddingHorizontal: compact ? 16 : 24,
-        paddingTop: compact ? 16 : 24,
-        paddingBottom: compact ? 12 : 16,
-        gap: compact ? 12 : 16,
+        paddingTop: compact ? 12 : 16,
+        paddingBottom: compact ? 8 : 12,
+        gap: compact ? 8 : 10,
       },
-      titleRow: {
+      toolbar: {
         flexDirection: "row" as const,
         alignItems: "center" as const,
         justifyContent: "space-between" as const,
-        gap: 12,
+        gap: 8,
       },
-      title: { color: theme.colors.foreground, fontSize: compact ? 20 : 24, fontWeight: "600" as const, flex: 1 },
-      actions: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 8 },
-      muted: { color: theme.colors.foregroundMuted },
-      danger: { color: theme.colors.statusDanger },
+      actions: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: 8 },
+      muted: { color: theme.colors.foregroundMuted, fontSize: 14 },
+      danger: { color: theme.colors.statusDanger, fontSize: 14 },
       filters: {
         flexDirection: "row" as const,
         flexWrap: "wrap" as const,
-        alignItems: "flex-start" as const,
-        gap: 8,
+        alignItems: "center" as const,
+        gap: 4,
         overflow: "visible" as const,
       },
       search: compact
         ? { ...searchField, width: "100%" as const, paddingVertical: 8 }
-        : { ...searchField, flexGrow: 1, flexBasis: 220, minWidth: 180, paddingVertical: 10 },
+        : { ...searchField, flexGrow: 1, flexBasis: 180, minWidth: 160, paddingVertical: 7 },
       actionQuiet: {
-        backgroundColor: theme.colors.surface2,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        paddingHorizontal: 12,
-        paddingVertical: compact ? 6 : 8,
+        minHeight: 32,
+        backgroundColor: "transparent",
+        paddingHorizontal: 8,
+        paddingVertical: 6,
         borderRadius: 8,
       },
-      actionQuietLabel: { color: theme.colors.foreground, fontWeight: "600" as const },
+      actionQuietLabel: { color: theme.colors.foreground, fontSize: 14 },
       empty: { paddingHorizontal: compact ? 16 : 24, paddingVertical: compact ? 20 : 28 },
     };
   }, [layout.compact, theme]);
@@ -132,6 +150,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const projects = projectsQuery.data ?? [];
   const listResult = listQuery.data;
   const pullRequests = listResult?.kind === "ok" ? listResult.pullRequests : [];
+  const waitingCount = attentionQuery.data?.kind === "ok" ? attentionQuery.data.count : 0;
   const repositoryItems = projects.map((project) => ({
     id: project.projectId,
     label: `${project.owner}/${project.repo}`,
@@ -189,8 +208,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
     <View style={styles.screen}>
       {openFilter ? <Pressable style={styles.overlay} onPress={() => setOpenFilter(null)} /> : null}
       <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Pull requests</Text>
+        <View style={styles.toolbar}>
           <View style={styles.actions}>
             {selectedProject ? (
               <Pressable
@@ -212,15 +230,13 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
               <Text style={styles.actionQuietLabel}>Open by number</Text>
             </Pressable>
           </View>
+          <CountBadge
+            theme={theme}
+            count={waitingCount}
+            accessibilityLabel={`${waitingCount} pull requests waiting on you`}
+            onPress={() => setWaiting("me")}
+          />
         </View>
-        <GhPathField
-          theme={theme}
-          compact={layout.compact}
-          onSaved={() => {
-            void statusQuery.refetch();
-            void listQuery.refetch();
-          }}
-        />
         <View style={styles.filters}>
           <FilterDropdown
             theme={theme}
@@ -254,19 +270,52 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
             theme={theme}
             compact={layout.compact}
             label="Author"
-            items={AUTHORS}
+            items={PEOPLE}
             selectedIds={[author]}
             open={openFilter === "author"}
             onOpenChange={(open) => setOpenFilter(open ? "author" : null)}
             onToggle={(id) => {
-              if (isAuthorFilter(id)) setAuthor(id);
+              if (isPersonFilter(id)) setAuthor(id);
             }}
             summary={author === "me" ? "Me" : ""}
+          />
+          <FilterDropdown
+            theme={theme}
+            compact={layout.compact}
+            label="Assignee"
+            items={PEOPLE}
+            selectedIds={[assignee]}
+            open={openFilter === "assignee"}
+            onOpenChange={(open) => setOpenFilter(open ? "assignee" : null)}
+            onToggle={(id) => {
+              if (isPersonFilter(id)) setAssignee(id);
+            }}
+            summary={assignee === "me" ? "Me" : ""}
+          />
+          <FilterDropdown
+            theme={theme}
+            compact={layout.compact}
+            label="Waiting"
+            items={PEOPLE}
+            selectedIds={[waiting]}
+            open={openFilter === "waiting"}
+            onOpenChange={(open) => setOpenFilter(open ? "waiting" : null)}
+            onToggle={(id) => {
+              if (isPersonFilter(id)) setWaiting(id);
+            }}
+            summary={waiting === "me" ? "Me" : ""}
+            trailing={
+              <CountBadge
+                theme={theme}
+                count={waitingCount}
+                accessibilityLabel={`${waitingCount} pull requests waiting on you`}
+              />
+            }
           />
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search pull requests"
+            placeholder="Search"
             placeholderTextColor={theme.colors.foregroundMuted}
             style={styles.search}
             autoCapitalize="none"
@@ -274,6 +323,15 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
             accessibilityLabel="Search pull requests"
           />
         </View>
+        <GhPathField
+          theme={theme}
+          compact={layout.compact}
+          onSaved={() => {
+            void statusQuery.refetch();
+            void listQuery.refetch();
+            void attentionQuery.refetch();
+          }}
+        />
       </View>
       {statusQuery.isLoading || projectsQuery.isLoading ? (
         <View style={styles.empty}>

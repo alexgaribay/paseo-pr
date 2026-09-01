@@ -1,7 +1,8 @@
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
-import { getGhStatus, listRepoPullRequests, viewRepoPullRequest } from "./gh.server";
+import { countRepoWaitingPullRequests, getGhStatus, listRepoPullRequests, viewRepoPullRequest } from "./gh.server";
 import { findGithubProject, listResolvedGithubProjects } from "./projects.server";
 import type {
+  AttentionOutput,
   ListPullRequestsInput,
   ListPullRequestsOutput,
   PullRequest,
@@ -32,16 +33,23 @@ export async function handlePrList(
   }
 
   const listState = githubListState(input.states);
+  const results = await Promise.all(
+    selected.map((project) =>
+      listRepoPullRequests({
+        projectId: project.projectId,
+        repo: project.github,
+        state: listState,
+        author: input.author,
+        assignee: input.assignee,
+        waiting: input.waiting,
+        search: input.search,
+        limit: input.limit,
+      }),
+    ),
+  );
+
   const pullRequests: PullRequest[] = [];
-  for (const project of selected) {
-    const result = await listRepoPullRequests({
-      projectId: project.projectId,
-      repo: project.github,
-      state: listState,
-      author: input.author,
-      search: input.search,
-      limit: input.limit,
-    });
+  for (const result of results) {
     if (result.kind !== "ok") return result;
     pullRequests.push(...result.pullRequests.filter((pullRequest) => matchesStates(pullRequest, input.states)));
   }
@@ -63,6 +71,23 @@ export async function handlePrView(
     repo: project.github,
     number: input.number,
   });
+}
+
+export async function handlePrAttention(
+  _input: Record<string, never>,
+  context: PluginHandlerContext,
+): Promise<AttentionOutput> {
+  const status = await getGhStatus();
+  if (status.kind !== "ok") return status;
+
+  const projects = await listResolvedGithubProjects(context);
+  const results = await Promise.all(projects.map((project) => countRepoWaitingPullRequests({ repo: project.github })));
+  const keys = new Set<string>();
+  for (const result of results) {
+    if (result.kind !== "ok") return result;
+    for (const key of result.keys) keys.add(key);
+  }
+  return { kind: "ok", count: keys.size };
 }
 
 function selectProjects<T extends { projectId: string }>(projects: T[], projectIds: string[] | undefined): T[] {
