@@ -2,40 +2,6 @@ import { Pressable, Text, View } from "react-native";
 import type { PluginTheme } from "@getpaseo/plugin";
 import type { PullRequest, PullRequestPersonFilter, PullRequestState } from "./pr.shared";
 
-export function ChipRow(props: {
-  styles: {
-    row: object;
-    chip: object;
-    chipSelected: object;
-    chipLabel: object;
-    chipLabelSelected: object;
-  };
-  items: { id: string; label: string }[];
-  selected: string;
-  onSelect: (id: string) => void;
-  groupLabel?: string;
-}) {
-  return (
-    <View style={props.styles.row}>
-      {props.items.map((item) => {
-        const selected = item.id === props.selected;
-        return (
-          <Pressable
-            key={item.id}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            accessibilityLabel={props.groupLabel ? `${props.groupLabel}: ${item.label}` : item.label}
-            onPress={() => props.onSelect(item.id)}
-            style={[props.styles.chip, selected ? props.styles.chipSelected : null]}
-          >
-            <Text style={selected ? props.styles.chipLabelSelected : props.styles.chipLabel}>{item.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 export function StatusBadge(props: {
   theme: PluginTheme;
   label: string;

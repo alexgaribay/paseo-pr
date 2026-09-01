@@ -56,4 +56,4 @@ paseo plugin reload paseo-pr
 - **Settings** on the inbox configures background refresh (Off, 1, 2, 5, 10, 15, or 30 minutes) and the GitHub CLI path. The open inbox list uses the same interval.
 - Click a pull request row to open a show view with the description, conversation comments, and reviews, rendered as markdown with author avatars. **Create Workspace** creates a worktree checkout of that change request. **Jump to Workspace** opens an existing one. **View on GitHub** on the show view opens the same PR in the browser.
 - **New workspace** on a repo creates a worktree branched from `origin/HEAD`.
-- Command Center (**⌘K** / **Ctrl+K**) → **Search for PR** opens the inbox and focuses the Search field. **Open by number** on the inbox still opens a pull request by number.
+- Command Center (**⌘K** / **Ctrl+K**) → **Search for PR** opens the inbox and focuses the Search field.

@@ -5,8 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { FilterDropdown, selectedSummary, toggleSelectedId } from "./filter-dropdown.client";
 import { CountBadge, isPersonFilter, isPullRequestState } from "./inbox-helpers.client";
-import { OpenPrModal } from "./open-pr-modal.client";
-import { subscribeOpenPrModal } from "./open-pr-request.client";
 import { openHttpsUrl } from "./open-url.client";
 import { PrShowPanel } from "./pr-show.client";
 import { PrTable, PrTableSkeleton } from "./pr-table.client";
@@ -74,21 +72,9 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const [openFilter, setOpenFilter] = useState<OpenFilter>(null);
   const [pane, setPane] = useState<Pane>("inbox");
   const [selectedPullRequest, setSelectedPullRequest] = useState<PullRequest | null>(null);
-  const [openByNumber, setOpenByNumber] = useState(false);
-  const [openPrNumber, setOpenPrNumber] = useState<number | null>(null);
-  const [openPrAutoSubmit, setOpenPrAutoSubmit] = useState(false);
   const [searchFocusToken, setSearchFocusToken] = useState(0);
   const searchInputRef = useRef<TextInput>(null);
 
-  useEffect(
-    () =>
-      subscribeOpenPrModal((request) => {
-        setOpenPrNumber(request.number);
-        setOpenPrAutoSubmit(request.autoSubmit);
-        setOpenByNumber(true);
-      }),
-    [],
-  );
   useEffect(
     () =>
       subscribeInboxFocus(() => {
@@ -227,6 +213,18 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
         alignItems: "center" as const,
         gap: 6,
       },
+      actionOutlined: {
+        minHeight: 32,
+        backgroundColor: theme.colors.surface2,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        gap: 6,
+      },
       actionQuietLabel: { color: theme.colors.foreground, fontSize: 14 },
       empty: { paddingHorizontal: compact ? 16 : 24, paddingVertical: compact ? 20 : 28 },
     };
@@ -344,18 +342,6 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
                     <Text style={styles.actionQuietLabel}>New workspace</Text>
                   </Pressable>
                 ) : null}
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open pull request by number"
-                  onPress={() => {
-                    setOpenPrNumber(null);
-                    setOpenPrAutoSubmit(false);
-                    setOpenByNumber(true);
-                  }}
-                  style={styles.actionQuiet}
-                >
-                  <Text style={styles.actionQuietLabel}>Open by number</Text>
-                </Pressable>
               </>
             )}
             {selectedPullRequest && pane !== "settings" ? (
@@ -399,7 +385,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
                 accessibilityRole="button"
                 accessibilityLabel="Reviews awaiting on me"
                 onPress={() => setWaiting("me")}
-                style={styles.actionQuiet}
+                style={styles.actionOutlined}
               >
                 <Text style={styles.actionQuietLabel}>Reviews Awaiting on Me</Text>
                 <CountBadge
@@ -553,21 +539,6 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
           onOpenWorkspace={(pullRequest) => createPr.mutate(pullRequest)}
         />
       ) : null}
-      <OpenPrModal
-        theme={theme}
-        compact={layout.compact}
-        open={openByNumber}
-        initialNumber={openPrNumber}
-        autoSubmit={openPrAutoSubmit}
-        onOpenChange={(open) => {
-          setOpenByNumber(open);
-          if (!open) {
-            setOpenPrNumber(null);
-            setOpenPrAutoSubmit(false);
-          }
-        }}
-        openWorkspace={navigation?.openWorkspace}
-      />
     </View>
   );
 }
