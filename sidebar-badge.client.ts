@@ -1,35 +1,54 @@
 const SIDEBAR_TEST_ID = "plugin-sidebar-paseo-pr-main";
 const BADGE_ATTR = "data-paseo-pr-waiting";
-const POLL_MS = 60_000;
+const DEFAULT_POLL_MS = 5 * 60_000;
 
 let started = false;
 let lastCount = 0;
+let pollMs = DEFAULT_POLL_MS;
+let fetchCount: () => Promise<number> = async () => 0;
+let timer: ReturnType<typeof setInterval> | undefined;
+let observer: MutationObserver | undefined;
 
-export function ensureSidebarBadgePolling(fetchCount: () => Promise<number>): () => void {
+export function ensureSidebarBadgePolling(nextFetchCount: () => Promise<number>): () => void {
+  fetchCount = nextFetchCount;
   if (started) return () => {};
   started = true;
 
-  async function refresh() {
-    try {
-      lastCount = await fetchCount();
-    } catch {
-      lastCount = 0;
-    }
-    renderSidebarBadge(lastCount);
-  }
-
   if (typeof document !== "undefined" && typeof MutationObserver !== "undefined") {
-    const observer = new MutationObserver(() => {
+    observer = new MutationObserver(() => {
       renderSidebarBadge(lastCount);
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    setInterval(() => {
-      void refresh();
-    }, POLL_MS);
+    startTimer();
     void refresh();
   }
 
   return () => {};
+}
+
+export function setSidebarBadgePollInterval(ms: number | false): void {
+  pollMs = ms === false ? 0 : ms;
+  if (!started) return;
+  startTimer();
+}
+
+async function refresh() {
+  try {
+    lastCount = await fetchCount();
+  } catch {
+    lastCount = 0;
+  }
+  renderSidebarBadge(lastCount);
+}
+
+function startTimer() {
+  if (timer) clearInterval(timer);
+  timer = undefined;
+  if (pollMs > 0) {
+    timer = setInterval(() => {
+      void refresh();
+    }, pollMs);
+  }
 }
 
 export function renderSidebarBadge(count: number) {

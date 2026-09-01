@@ -2,7 +2,7 @@
 
 Paseo plugin that lists GitHub pull requests for registered projects and opens isolated workspaces from them.
 
-Requires the [GitHub CLI](https://cli.github.com/) (`gh`) on the **daemon** machine, authenticated with `gh auth login`. The plugin looks for `gh` on the process PATH, then Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), `~/.local/bin`, and the login shell PATH so GUI-launched Paseo still finds it. Override that from **Pull requests** with **GitHub CLI path** (stored under `$PASEO_HOME/plugin-data/paseo-pr/settings.json`). Settings → Plugins cannot host plugin config today.
+Requires the [GitHub CLI](https://cli.github.com/) (`gh`) on the **daemon** machine, authenticated with `gh auth login`. The plugin looks for `gh` on the process PATH, then Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), `~/.local/bin`, and the login shell PATH so GUI-launched Paseo still finds it. Override that from **Pull requests → Settings**. Refresh interval and the GitHub CLI path are stored under `$PASEO_HOME/plugin-data/paseo-pr/settings.json`. Paseo's own Settings → Plugins cannot host plugin config today.
 
 Plugins are installed per daemon. The path or Git clone lives on the host running the daemon, not on the machine where you open the Paseo app.
 
@@ -52,7 +52,8 @@ paseo plugin reload paseo-pr
 - Filter with **Repository**, **Status**, **Author**, **Assignee**, and **Waiting** (checkbox items) plus search.
 - **Assignee: Me** lists PRs assigned to the signed-in GitHub user.
 - **Waiting: Me** lists open PRs that need you: review requested, or your PR with changes requested.
-- The sidebar **Pull requests** item shows a count of those waiting PRs (desktop/web). Zero hides the badge. The count starts after the inbox is opened once, then refreshes about every minute.
+- The sidebar **Pull requests** item shows a count of those waiting PRs (desktop/web). Zero hides the badge. The count starts after the inbox is opened once, then refreshes on the interval from **Settings** (default 5 minutes).
+- **Settings** on the inbox configures background refresh (Off, 1, 2, 5, 10, 15, or 30 minutes) and the GitHub CLI path. The open inbox list uses the same interval.
 - **Open workspace** on a PR creates a worktree checkout of that change request.
 - **New workspace** on a repo creates a worktree branched from `origin/HEAD`.
-- Command Center (**⌘K** / **Ctrl+K**) → **Open GitHub PR** looks up a PR by number and creates the same workspace.
+- Command Center (**⌘K** / **Ctrl+K**) → **Open GitHub PR** looks up a PR by number. Typing `42`, `#42`, `pr 42`, or a GitHub pull URL prefills that number. If exactly one GitHub project is registered, it opens the workspace directly.

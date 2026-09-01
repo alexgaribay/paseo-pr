@@ -1,7 +1,7 @@
 import { usePaseo, useRpc, type PluginTheme } from "@getpaseo/plugin";
 import { Icon, Modal, useToast } from "@getpaseo/plugin/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { ChipRow } from "./inbox-helpers.client";
 import { prProjects, prView } from "./pr.shared";
@@ -11,6 +11,8 @@ export function OpenPrModal(props: {
   theme: PluginTheme;
   compact: boolean;
   open: boolean;
+  initialNumber: number | null;
+  autoSubmit: boolean;
   onOpenChange: (open: boolean) => void;
   openWorkspace?: (input: { workspaceId: string }) => void;
 }) {
@@ -20,6 +22,7 @@ export function OpenPrModal(props: {
   const fetchPullRequest = useRpc(prView);
   const [numberText, setNumberText] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
+  const autoSubmitted = useRef(false);
 
   const projectsQuery = useQuery({
     queryKey: ["pr.projects"],
@@ -29,6 +32,16 @@ export function OpenPrModal(props: {
   const projects = projectsQuery.data ?? [];
   const selectedProjectId = projectId ?? (projects.length === 1 ? projects[0].projectId : null);
   const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? null;
+
+  useEffect(() => {
+    if (!props.open) {
+      autoSubmitted.current = false;
+      setNumberText("");
+      setProjectId(null);
+      return;
+    }
+    if (props.initialNumber !== null) setNumberText(String(props.initialNumber));
+  }, [props.open, props.initialNumber]);
 
   const styles = useMemo(() => {
     const compact = props.compact;
@@ -98,6 +111,24 @@ export function OpenPrModal(props: {
     },
   });
 
+  useEffect(() => {
+    if (!props.open || !props.autoSubmit || autoSubmitted.current || create.isPending) return;
+    if (projectsQuery.isLoading || !selectedProject) return;
+    const number = Number.parseInt(numberText, 10);
+    if (!Number.isInteger(number) || number <= 0) return;
+    if (projects.length !== 1) return;
+    autoSubmitted.current = true;
+    create.mutate();
+  }, [
+    create.isPending,
+    create.mutate,
+    numberText,
+    projects.length,
+    projectsQuery.isLoading,
+    props.autoSubmit,
+    props.open,
+    selectedProject,
+  ]);
   return (
     <Modal
       title="Open GitHub PR"

@@ -1,21 +1,27 @@
-type Listener = () => void;
+export interface OpenPrRequest {
+  number: number | null;
+  autoSubmit: boolean;
+}
+
+type Listener = (request: OpenPrRequest) => void;
 
 const listeners = new Set<Listener>();
-let pending = false;
+let pending: OpenPrRequest | null = null;
 
-export function requestOpenPrModal(): void {
+export function requestOpenPrModal(request: OpenPrRequest = { number: null, autoSubmit: false }): void {
   if (listeners.size === 0) {
-    pending = true;
+    pending = request;
     return;
   }
-  for (const listener of listeners) listener();
+  for (const listener of listeners) listener(request);
 }
 
 export function subscribeOpenPrModal(listener: Listener): () => void {
   listeners.add(listener);
   if (pending) {
-    pending = false;
-    listener();
+    const request = pending;
+    pending = null;
+    listener(request);
   }
   return () => {
     listeners.delete(listener);
