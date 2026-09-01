@@ -1,6 +1,6 @@
 import { usePaseo, useRpc, type PluginSurfaceProps } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/react-native";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { FilterDropdown, selectedSummary, toggleSelectedId } from "./filter-dropdown.client";
@@ -32,7 +32,14 @@ import {
   setSidebarBadgePollInterval,
   setSidebarBadgeTheme,
 } from "./sidebar-badge.client";
-import { createPullRequestWorkspace, createRepoWorkspace } from "./workspace-from-pr.client";
+import {
+  createPullRequestWorkspace,
+  createRepoWorkspace,
+  findWorkspaceForPullRequest,
+  indexWorkspacesByPullRequest,
+  listActiveWorkspaces,
+  pullRequestWorkspaceKey,
+} from "./workspace-from-pr.client";
 
 type OpenFilter = "repository" | "status" | "author" | "assignee" | "waiting" | null;
 type Pane = "inbox" | "settings";
@@ -51,6 +58,7 @@ const PEOPLE: { id: PullRequestPersonFilter; label: string }[] = [
 export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const paseo = usePaseo();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const fetchStatus = useRpc(prStatus);
   const fetchProjects = useRpc(prProjects);
   const fetchPullRequests = useRpc(prList);
@@ -122,6 +130,11 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   useEffect(() => {
     setSidebarBadgePollInterval(refreshMs);
   }, [refreshMs]);
+  useEffect(() => {
+    return paseo.workspaces.subscribe(() => {
+      void queryClient.invalidateQueries({ queryKey: ["pr.workspaces"] });
+    });
+  }, [paseo, queryClient]);
 
   const statusQuery = useQuery({
     queryKey: ["pr.status"],
@@ -149,6 +162,11 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
     queryKey: ["pr.attention"],
     queryFn: () => fetchAttention({}),
     enabled: statusQuery.data?.kind === "ok",
+    refetchInterval: refreshMs,
+  });
+  const workspacesQuery = useQuery({
+    queryKey: ["pr.workspaces"],
+    queryFn: () => listActiveWorkspaces(paseo),
     refetchInterval: refreshMs,
   });
 
@@ -217,6 +235,10 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const projects = projectsQuery.data ?? [];
   const listResult = listQuery.data;
   const pullRequests = listResult?.kind === "ok" ? listResult.pullRequests : [];
+  const workspaceIds = useMemo(
+    () => indexWorkspacesByPullRequest(workspacesQuery.data ?? [], pullRequests),
+    [pullRequests, workspacesQuery.data],
+  );
   const waitingCount = attentionQuery.data?.kind === "ok" ? attentionQuery.data.count : 0;
   const repositoryItems = projects.map((project) => ({
     id: project.projectId,
@@ -227,18 +249,28 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
 
   const createPr = useMutation({
     mutationFn: async (pullRequest: PullRequest) => {
+      const existing = findWorkspaceForPullRequest(await listActiveWorkspaces(paseo), pullRequest);
+      if (existing) return { workspaceId: existing.id, created: false };
       const project = projects.find((entry) => entry.projectId === pullRequest.projectId);
       if (!project) throw new Error("That GitHub project is no longer registered.");
-      return await createPullRequestWorkspace({
+      const created = await createPullRequestWorkspace({
         paseo,
         rootPath: project.rootPath,
         number: pullRequest.number,
         title: pullRequest.title,
       });
+      return { workspaceId: created.workspaceId, created: true };
     },
-    onSuccess: ({ workspaceId }) => {
-      toast.show("Workspace created", { variant: "success" });
-      navigation?.openWorkspace({ workspaceId });
+    onSuccess: ({ workspaceId, created }) => {
+      if (created) {
+        toast.show("Workspace created", { variant: "success" });
+        void queryClient.invalidateQueries({ queryKey: ["pr.workspaces"] });
+      }
+      if (!navigation?.openWorkspace) {
+        toast.error("Could not open that workspace.");
+        return;
+      }
+      navigation.openWorkspace({ workspaceId });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not create a workspace for that pull request.");
@@ -276,6 +308,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
     void statusQuery.refetch();
     void listQuery.refetch();
     void attentionQuery.refetch();
+    void workspacesQuery.refetch();
     void settingsQuery.refetch();
   }
 
@@ -342,12 +375,20 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Create workspace for pull request ${selectedPullRequest.number}`}
+                  accessibilityLabel={
+                    workspaceIds.get(pullRequestWorkspaceKey(selectedPullRequest))
+                      ? `Jump to workspace for pull request ${selectedPullRequest.number}`
+                      : `Create workspace for pull request ${selectedPullRequest.number}`
+                  }
                   onPress={() => createPr.mutate(selectedPullRequest)}
                   style={styles.actionQuiet}
                   disabled={createPr.isPending}
                 >
-                  <Text style={styles.actionQuietLabel}>Open</Text>
+                  <Text style={styles.actionQuietLabel}>
+                    {workspaceIds.get(pullRequestWorkspaceKey(selectedPullRequest))
+                      ? "Jump to Workspace"
+                      : "Create Workspace"}
+                  </Text>
                 </Pressable>
               </>
             ) : null}
@@ -500,6 +541,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
           compact={layout.compact}
           pullRequests={pullRequests}
           opening={createPr.isPending}
+          workspaceIdFor={(pullRequest) => workspaceIds.get(pullRequestWorkspaceKey(pullRequest)) ?? null}
           onShow={setSelectedPullRequest}
           onOpenWorkspace={(pullRequest) => createPr.mutate(pullRequest)}
         />

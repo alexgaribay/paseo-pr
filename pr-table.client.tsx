@@ -20,6 +20,7 @@ export function PrTable(props: {
   compact: boolean;
   pullRequests: PullRequest[];
   opening: boolean;
+  workspaceIdFor: (pullRequest: PullRequest) => string | null;
   onShow: (pullRequest: PullRequest) => void;
   onOpenWorkspace: (pullRequest: PullRequest) => void;
 }) {
@@ -37,6 +38,7 @@ export function PrTable(props: {
           styles={styles}
           theme={props.theme}
           opening={props.opening}
+          workspaceId={props.workspaceIdFor(item)}
           onShow={props.onShow}
           onOpenWorkspace={props.onOpenWorkspace}
         />
@@ -72,7 +74,7 @@ export function PrTableSkeleton(props: { theme: PluginTheme; compact: boolean })
           </View>
           <View style={styles.trailing}>
             <SkeletonBone theme={props.theme} pulse={pulse} width={72} height={22} radius={999} />
-            <SkeletonBone theme={props.theme} pulse={pulse} width={72} height={32} radius={8} />
+            <SkeletonBone theme={props.theme} pulse={pulse} width={132} height={32} radius={8} />
           </View>
         </View>
       ))}
@@ -84,6 +86,7 @@ function TableRow(props: {
   pullRequest: PullRequest;
   compact: boolean;
   opening: boolean;
+  workspaceId: string | null;
   theme: PluginTheme;
   onShow: (pullRequest: PullRequest) => void;
   onOpenWorkspace: (pullRequest: PullRequest) => void;
@@ -132,9 +135,13 @@ function TableRow(props: {
         <RowButton
           theme={props.theme}
           styles={styles}
-          icon="FolderGit2"
-          label="Open"
-          accessibilityLabel={`Create workspace for pull request ${pullRequest.number}`}
+          icon={props.workspaceId ? "ArrowRight" : "FolderGit2"}
+          label={props.workspaceId ? "Jump to Workspace" : "Create Workspace"}
+          accessibilityLabel={
+            props.workspaceId
+              ? `Jump to workspace for pull request ${pullRequest.number}`
+              : `Create workspace for pull request ${pullRequest.number}`
+          }
           disabled={props.opening}
           onPress={() => props.onOpenWorkspace(pullRequest)}
         />
