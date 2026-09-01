@@ -394,13 +394,20 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
             ) : null}
           </View>
           <View style={styles.actions}>
-            {pane === "inbox" && !selectedPullRequest ? (
-              <CountBadge
-                theme={theme}
-                count={waitingCount}
-                accessibilityLabel={`${waitingCount} pull requests waiting on you`}
+            {pane === "inbox" && !selectedPullRequest && waitingCount > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Reviews awaiting on me"
                 onPress={() => setWaiting("me")}
-              />
+                style={styles.actionQuiet}
+              >
+                <Text style={styles.actionQuietLabel}>Reviews Awaiting on Me</Text>
+                <CountBadge
+                  theme={theme}
+                  count={waitingCount}
+                  accessibilityLabel={`${waitingCount} pull requests waiting on you`}
+                />
+              </Pressable>
             ) : null}
             <Pressable
               accessibilityRole="button"
