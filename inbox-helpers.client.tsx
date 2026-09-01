@@ -54,7 +54,6 @@ export function StatusBadge(props: {
       style={{
         flexDirection: "row",
         alignItems: "center",
-        alignSelf: "flex-start",
         gap: 6,
         borderRadius: 999,
         borderWidth: 1,

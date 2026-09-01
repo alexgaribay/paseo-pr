@@ -1,7 +1,7 @@
 import { useRpc, type PluginTheme } from "@getpaseo/plugin";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { UserAvatar } from "./avatar.client";
 import {
   formatAssignees,
@@ -12,6 +12,7 @@ import {
   StatusBadge,
 } from "./inbox-helpers.client";
 import { MarkdownBody } from "./markdown.client";
+import { SkeletonBone, useSkeletonPulse } from "./skeleton.client";
 import { prView, type PullRequest, type PullRequestComment, type PullRequestDetail } from "./pr.shared";
 
 export function PrShowPanel(props: {
@@ -86,7 +87,7 @@ export function PrShowPanel(props: {
 
       <Text style={styles.section}>Description</Text>
       {detailQuery.isLoading ? (
-        <ActivityIndicator color={props.theme.colors.accent} />
+        <ShowMarkdownSkeleton theme={props.theme} compact={props.compact} />
       ) : error ? (
         <Text style={styles.danger}>{error}</Text>
       ) : description.length > 0 ? (
@@ -106,7 +107,7 @@ export function PrShowPanel(props: {
 
       <Text style={styles.section}>Conversation</Text>
       {detailQuery.isLoading ? (
-        <ActivityIndicator color={props.theme.colors.accent} />
+        <ShowCommentsSkeleton theme={props.theme} compact={props.compact} />
       ) : comments.length === 0 ? (
         <Text style={styles.muted}>No comments yet.</Text>
       ) : (
@@ -124,6 +125,55 @@ export function PrShowPanel(props: {
         ))
       )}
     </ScrollView>
+  );
+}
+
+function ShowMarkdownSkeleton(props: { theme: PluginTheme; compact: boolean }) {
+  const pulse = useSkeletonPulse();
+  return (
+    <View
+      accessibilityLabel="Loading description"
+      style={{
+        backgroundColor: props.theme.colors.surface1,
+        borderWidth: 1,
+        borderColor: props.theme.colors.border,
+        borderRadius: 8,
+        padding: 12,
+        gap: 8,
+      }}
+    >
+      <SkeletonBone theme={props.theme} pulse={pulse} height={14} />
+      <SkeletonBone theme={props.theme} pulse={pulse} height={14} style={{ maxWidth: props.compact ? 220 : 360 }} />
+      <SkeletonBone theme={props.theme} pulse={pulse} height={14} style={{ maxWidth: props.compact ? 180 : 280 }} />
+    </View>
+  );
+}
+
+function ShowCommentsSkeleton(props: { theme: PluginTheme; compact: boolean }) {
+  const pulse = useSkeletonPulse();
+  return (
+    <View accessibilityLabel="Loading conversation" style={{ gap: 12 }}>
+      {[0, 1].map((index) => (
+        <View
+          key={index}
+          style={{
+            backgroundColor: props.theme.colors.surface1,
+            borderWidth: 1,
+            borderColor: props.theme.colors.border,
+            borderRadius: 8,
+            padding: 12,
+            gap: 8,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <SkeletonBone theme={props.theme} pulse={pulse} width={22} height={22} radius={11} />
+            <SkeletonBone theme={props.theme} pulse={pulse} height={12} style={{ flex: 1, maxWidth: 180 }} />
+          </View>
+          <SkeletonBone theme={props.theme} pulse={pulse} height={14} />
+          <SkeletonBone theme={props.theme} pulse={pulse} height={14} style={{ maxWidth: index === 0 ? 240 : 200 }} />
+        </View>
+      ))}
+    </View>
   );
 }
 

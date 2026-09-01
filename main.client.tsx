@@ -2,14 +2,14 @@ import { usePaseo, useRpc, type PluginSurfaceProps } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { FilterDropdown, selectedSummary, toggleSelectedId } from "./filter-dropdown.client";
 import { CountBadge, isPersonFilter, isPullRequestState } from "./inbox-helpers.client";
 import { OpenPrModal } from "./open-pr-modal.client";
 import { subscribeOpenPrModal } from "./open-pr-request.client";
 import { openHttpsUrl } from "./open-url.client";
 import { PrShowPanel } from "./pr-show.client";
-import { PrTable } from "./pr-table.client";
+import { PrTable, PrTableSkeleton } from "./pr-table.client";
 import {
   prAttention,
   prList,
@@ -471,9 +471,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
       ) : selectedPullRequest ? (
         <PrShowPanel theme={theme} compact={layout.compact} platform={layout.platform} pullRequest={selectedPullRequest} />
       ) : statusQuery.isLoading || projectsQuery.isLoading ? (
-        <View style={styles.empty}>
-          <ActivityIndicator color={theme.colors.accent} />
-        </View>
+        <PrTableSkeleton theme={theme} compact={layout.compact} />
       ) : unavailable ? (
         <View style={styles.empty}>
           <Text style={styles.danger}>
@@ -491,9 +489,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
           </Text>
         </View>
       ) : listQuery.isLoading ? (
-        <View style={styles.empty}>
-          <ActivityIndicator color={theme.colors.accent} />
-        </View>
+        <PrTableSkeleton theme={theme} compact={layout.compact} />
       ) : listError ? (
         <View style={styles.empty}>
           <Text style={styles.danger}>{listError.message}</Text>

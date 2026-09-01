@@ -11,6 +11,9 @@ import {
   StatusBadge,
 } from "./inbox-helpers.client";
 import type { PullRequest } from "./pr.shared";
+import { SkeletonBone, useSkeletonPulse } from "./skeleton.client";
+
+const SKELETON_ROWS = [72, 58, 66, 48, 70, 54, 62, 44] as const;
 
 export function PrTable(props: {
   theme: PluginTheme;
@@ -44,6 +47,36 @@ export function PrTable(props: {
         </View>
       }
     />
+  );
+}
+
+export function PrTableSkeleton(props: { theme: PluginTheme; compact: boolean }) {
+  const styles = useMemo(() => tableStyles(props.theme, props.compact), [props.compact, props.theme]);
+  const pulse = useSkeletonPulse();
+
+  return (
+    <View style={styles.list} accessibilityLabel="Loading pull requests">
+      {SKELETON_ROWS.map((titleWidth, index) => (
+        <View key={index} style={styles.row}>
+          <View style={styles.body}>
+            <View style={styles.titleRow}>
+              <SkeletonBone theme={props.theme} pulse={pulse} width={36} height={14} />
+              <SkeletonBone theme={props.theme} pulse={pulse} height={14} style={{ flex: 1, maxWidth: titleWidth * 4 }} />
+            </View>
+            <SkeletonBone
+              theme={props.theme}
+              pulse={pulse}
+              height={12}
+              style={{ maxWidth: index % 2 === 0 ? 220 : 180 }}
+            />
+          </View>
+          <View style={styles.trailing}>
+            <SkeletonBone theme={props.theme} pulse={pulse} width={72} height={22} radius={999} />
+            <SkeletonBone theme={props.theme} pulse={pulse} width={72} height={32} radius={8} />
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -96,14 +129,6 @@ function TableRow(props: {
         ) : (
           <StatusBadge theme={props.theme} label={status} tone={pullRequestStatusTone(pullRequest)} />
         )}
-        <RowButton
-          theme={props.theme}
-          styles={styles}
-          icon="Eye"
-          label="Show"
-          accessibilityLabel={`Show pull request ${pullRequest.number}`}
-          onPress={() => props.onShow(pullRequest)}
-        />
         <RowButton
           theme={props.theme}
           styles={styles}
@@ -170,7 +195,6 @@ function tableStyles(theme: PluginTheme, compact: boolean) {
     trailing: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
-      flexWrap: "wrap" as const,
       justifyContent: "flex-end" as const,
       gap: 8,
       flexShrink: 0,
