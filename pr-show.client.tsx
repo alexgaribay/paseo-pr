@@ -2,6 +2,7 @@ import { useRpc, type PluginTheme } from "@getpaseo/plugin";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { UserAvatar } from "./avatar.client";
 import {
   formatAssignees,
   formatPullRequestStatus,
@@ -10,11 +11,13 @@ import {
   repositoryLabel,
   StatusBadge,
 } from "./inbox-helpers.client";
+import { MarkdownBody } from "./markdown.client";
 import { prView, type PullRequest, type PullRequestComment, type PullRequestDetail } from "./pr.shared";
 
 export function PrShowPanel(props: {
   theme: PluginTheme;
   compact: boolean;
+  platform: "ios" | "android" | "web";
   pullRequest: PullRequest;
 }) {
   const fetchPullRequest = useRpc(prView);
@@ -35,17 +38,19 @@ export function PrShowPanel(props: {
   const pullRequest = detail ?? props.pullRequest;
   const status = formatPullRequestStatus(pullRequest);
   const assignees = formatAssignees(pullRequest);
-  const description = detail ? displayMarkdown(detail.body) : "";
+  const description = detail?.body.trim() ?? "";
   const comments = detail?.comments ?? [];
   const stats = detail ? formatDiffStats(detail) : "";
   const branch =
     pullRequest.headRefName && detail?.baseRefName
       ? `${detail.baseRefName} ← ${pullRequest.headRefName}`
       : pullRequest.headRefName;
+  const baseUrl = `https://${pullRequest.host}/${pullRequest.owner}/${pullRequest.repo}/`;
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <View style={styles.headingRow}>
+        <UserAvatar theme={props.theme} host={pullRequest.host} login={pullRequest.author} size={28} />
         <Text style={styles.number}>#{pullRequest.number}</Text>
         <Text style={styles.title}>{pullRequest.title}</Text>
       </View>
@@ -59,10 +64,17 @@ export function PrShowPanel(props: {
           <StatusBadge key={label} theme={props.theme} label={label} tone="muted" />
         ))}
       </View>
+      <View style={styles.people}>
+        <PersonChip theme={props.theme} host={pullRequest.host} login={pullRequest.author} />
+        {pullRequest.assignees
+          .filter((login) => login.toLowerCase() !== pullRequest.author.toLowerCase())
+          .map((login) => (
+            <PersonChip key={login} theme={props.theme} host={pullRequest.host} login={login} />
+          ))}
+      </View>
       <Text style={styles.meta}>
         {[
           repositoryLabel(pullRequest),
-          pullRequest.author,
           assignees ? `→ ${assignees}` : null,
           branch,
           stats,
@@ -79,9 +91,14 @@ export function PrShowPanel(props: {
         <Text style={styles.danger}>{error}</Text>
       ) : description.length > 0 ? (
         <View style={styles.card}>
-          <Text selectable style={styles.body}>
-            {description}
-          </Text>
+          <MarkdownBody
+            theme={props.theme}
+            compact={props.compact}
+            platform={props.platform}
+            source={description}
+            host={pullRequest.host}
+            baseUrl={baseUrl}
+          />
         </View>
       ) : (
         <Text style={styles.muted}>No description.</Text>
@@ -94,31 +111,62 @@ export function PrShowPanel(props: {
         <Text style={styles.muted}>No comments yet.</Text>
       ) : (
         comments.map((comment) => (
-          <CommentCard key={comment.id} theme={props.theme} styles={styles} comment={comment} />
+          <CommentCard
+            key={comment.id}
+            theme={props.theme}
+            compact={props.compact}
+            platform={props.platform}
+            host={pullRequest.host}
+            baseUrl={baseUrl}
+            styles={styles}
+            comment={comment}
+          />
         ))
       )}
     </ScrollView>
   );
 }
 
+function PersonChip(props: { theme: PluginTheme; host: string; login: string }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+      <UserAvatar theme={props.theme} host={props.host} login={props.login} size={18} />
+      <Text style={{ color: props.theme.colors.foregroundMuted, fontSize: 12 }}>{props.login}</Text>
+    </View>
+  );
+}
+
 function CommentCard(props: {
   theme: PluginTheme;
+  compact: boolean;
+  platform: "ios" | "android" | "web";
+  host: string;
+  baseUrl: string;
   styles: ReturnType<typeof showStyles>;
   comment: PullRequestComment;
 }) {
   const { comment, styles } = props;
   const kind = formatCommentKind(comment);
+  const body = comment.body.trim();
   return (
     <View style={styles.card}>
-      <Text style={styles.commentMeta}>
-        {[comment.author, kind, formatUpdatedAt(comment.createdAt), comment.path]
-          .filter((part): part is string => Boolean(part))
-          .join(" · ")}
-      </Text>
-      {displayMarkdown(comment.body).length > 0 ? (
-        <Text selectable style={styles.body}>
-          {displayMarkdown(comment.body)}
+      <View style={styles.commentHeader}>
+        <UserAvatar theme={props.theme} host={props.host} login={comment.author} size={22} />
+        <Text style={styles.commentMeta}>
+          {[comment.author, kind, formatUpdatedAt(comment.createdAt), comment.path]
+            .filter((part): part is string => Boolean(part))
+            .join(" · ")}
         </Text>
+      </View>
+      {body.length > 0 ? (
+        <MarkdownBody
+          theme={props.theme}
+          compact={props.compact}
+          platform={props.platform}
+          source={body}
+          host={props.host}
+          baseUrl={props.baseUrl}
+        />
       ) : (
         <Text style={styles.muted}>{kind ?? "Comment"}</Text>
       )}
@@ -145,10 +193,6 @@ function formatDiffStats(detail: PullRequestDetail): string {
   return parts.join(" ");
 }
 
-function displayMarkdown(body: string): string {
-  return body.replace(/<!--[\s\S]*?-->/gu, "").trim();
-}
-
 function showStyles(theme: PluginTheme, compact: boolean) {
   return {
     scroll: { flex: 1 },
@@ -162,6 +206,7 @@ function showStyles(theme: PluginTheme, compact: boolean) {
     number: { color: theme.colors.foregroundMuted, fontSize: 16, fontWeight: "500" as const, paddingTop: 2 },
     title: { color: theme.colors.foreground, fontSize: 16, fontWeight: "500" as const, flex: 1 },
     badges: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: 6 },
+    people: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: 10 },
     meta: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
     section: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const, marginTop: 8 },
     card: {
@@ -172,8 +217,8 @@ function showStyles(theme: PluginTheme, compact: boolean) {
       padding: 12,
       gap: 8,
     },
-    commentMeta: { color: theme.colors.foregroundMuted, fontSize: 12 },
-    body: { color: theme.colors.foreground, fontSize: 14, lineHeight: 20 },
+    commentHeader: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8 },
+    commentMeta: { color: theme.colors.foregroundMuted, fontSize: 12, flex: 1 },
     muted: { color: theme.colors.foregroundMuted, fontSize: 14 },
     danger: { color: theme.colors.statusDanger, fontSize: 14 },
   };

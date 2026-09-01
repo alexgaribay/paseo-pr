@@ -469,7 +469,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
       {pane === "settings" ? (
         <SettingsPanel theme={theme} compact={layout.compact} onSaved={refetchAll} />
       ) : selectedPullRequest ? (
-        <PrShowPanel theme={theme} compact={layout.compact} pullRequest={selectedPullRequest} />
+        <PrShowPanel theme={theme} compact={layout.compact} platform={layout.platform} pullRequest={selectedPullRequest} />
       ) : statusQuery.isLoading || projectsQuery.isLoading ? (
         <View style={styles.empty}>
           <ActivityIndicator color={theme.colors.accent} />
