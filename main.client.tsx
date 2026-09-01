@@ -7,6 +7,8 @@ import { FilterDropdown, selectedSummary, toggleSelectedId } from "./filter-drop
 import { CountBadge, isPersonFilter, isPullRequestState } from "./inbox-helpers.client";
 import { OpenPrModal } from "./open-pr-modal.client";
 import { subscribeOpenPrModal } from "./open-pr-request.client";
+import { openHttpsUrl } from "./open-url.client";
+import { PrShowPanel } from "./pr-show.client";
 import { PrTable } from "./pr-table.client";
 import {
   prAttention,
@@ -63,6 +65,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const [search, setSearch] = useState("");
   const [openFilter, setOpenFilter] = useState<OpenFilter>(null);
   const [pane, setPane] = useState<Pane>("inbox");
+  const [selectedPullRequest, setSelectedPullRequest] = useState<PullRequest | null>(null);
   const [openByNumber, setOpenByNumber] = useState(false);
   const [openPrNumber, setOpenPrNumber] = useState<number | null>(null);
   const [openPrAutoSubmit, setOpenPrAutoSubmit] = useState(false);
@@ -82,6 +85,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
     () =>
       subscribeInboxFocus(() => {
         setPane("inbox");
+        setSelectedPullRequest(null);
         setOpenFilter(null);
         setSearchFocusToken((token) => token + 1);
       }),
@@ -281,11 +285,14 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
       <View style={styles.header}>
         <View style={styles.toolbar}>
           <View style={styles.actions}>
-            {pane === "settings" ? (
+            {pane === "settings" || selectedPullRequest ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Back to pull requests"
-                onPress={() => setPane("inbox")}
+                onPress={() => {
+                  setPane("inbox");
+                  setSelectedPullRequest(null);
+                }}
                 style={styles.actionQuiet}
               >
                 <Icon name="ChevronLeft" size={14} color={theme.colors.foreground} />
@@ -318,9 +325,35 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
                 </Pressable>
               </>
             )}
+            {selectedPullRequest && pane !== "settings" ? (
+              <>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel="View pull request on GitHub"
+                  onPress={() => {
+                    if (!openHttpsUrl(selectedPullRequest.url, selectedPullRequest.host)) {
+                      toast.error("Could not open that pull request on GitHub.");
+                    }
+                  }}
+                  style={styles.actionQuiet}
+                >
+                  <Icon name="ExternalLink" size={14} color={theme.colors.foreground} />
+                  <Text style={styles.actionQuietLabel}>View on GitHub</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Create workspace for pull request ${selectedPullRequest.number}`}
+                  onPress={() => createPr.mutate(selectedPullRequest)}
+                  style={styles.actionQuiet}
+                  disabled={createPr.isPending}
+                >
+                  <Text style={styles.actionQuietLabel}>Open</Text>
+                </Pressable>
+              </>
+            ) : null}
           </View>
           <View style={styles.actions}>
-            {pane === "inbox" ? (
+            {pane === "inbox" && !selectedPullRequest ? (
               <CountBadge
                 theme={theme}
                 count={waitingCount}
@@ -333,6 +366,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
               accessibilityLabel={pane === "settings" ? "Close settings" : "Open settings"}
               onPress={() => {
                 setOpenFilter(null);
+                setSelectedPullRequest(null);
                 setPane((current) => (current === "settings" ? "inbox" : "settings"));
               }}
               style={styles.actionQuiet}
@@ -342,7 +376,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
             </Pressable>
           </View>
         </View>
-        {pane === "inbox" ? (
+        {pane === "inbox" && !selectedPullRequest ? (
           <View style={styles.filters}>
             <FilterDropdown
               theme={theme}
@@ -434,6 +468,8 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
       </View>
       {pane === "settings" ? (
         <SettingsPanel theme={theme} compact={layout.compact} onSaved={refetchAll} />
+      ) : selectedPullRequest ? (
+        <PrShowPanel theme={theme} compact={layout.compact} pullRequest={selectedPullRequest} />
       ) : statusQuery.isLoading || projectsQuery.isLoading ? (
         <View style={styles.empty}>
           <ActivityIndicator color={theme.colors.accent} />
@@ -468,6 +504,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
           compact={layout.compact}
           pullRequests={pullRequests}
           opening={createPr.isPending}
+          onShow={setSelectedPullRequest}
           onOpenWorkspace={(pullRequest) => createPr.mutate(pullRequest)}
         />
       ) : null}

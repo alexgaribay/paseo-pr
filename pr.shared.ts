@@ -42,6 +42,30 @@ export const pullRequestSchema = z.object({
   waitingOnViewer: z.boolean(),
 });
 
+export const pullRequestCommentKindSchema = z.enum(["comment", "review", "line"]);
+
+export const pullRequestCommentSchema = z.object({
+  id: z.string(),
+  author: z.string(),
+  body: z.string(),
+  createdAt: z.string(),
+  url: z.string().nullable(),
+  kind: pullRequestCommentKindSchema,
+  reviewState: z.string().nullable(),
+  path: z.string().nullable(),
+});
+
+export const pullRequestDetailSchema = pullRequestSchema.extend({
+  body: z.string(),
+  createdAt: z.string(),
+  labels: z.array(z.string()),
+  additions: z.number().int().nonnegative().nullable(),
+  deletions: z.number().int().nonnegative().nullable(),
+  changedFiles: z.number().int().nonnegative().nullable(),
+  baseRefName: z.string().nullable(),
+  comments: z.array(pullRequestCommentSchema),
+});
+
 export const listPullRequestsInputSchema = z.object({
   projectIds: z.array(z.string()).optional(),
   states: z.array(pullRequestStateSchema).default(["open"]),
@@ -80,7 +104,7 @@ export const viewPullRequestInputSchema = z.object({
 export const viewPullRequestOutputSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("ok"),
-    pullRequest: pullRequestSchema,
+    pullRequest: pullRequestDetailSchema,
   }),
   z.object({
     kind: z.literal("not_found"),
@@ -136,6 +160,8 @@ export const prAttention = defineRpc({
 export type GhStatus = z.infer<typeof ghStatusSchema>;
 export type GithubProject = z.infer<typeof githubProjectSchema>;
 export type PullRequest = z.infer<typeof pullRequestSchema>;
+export type PullRequestComment = z.infer<typeof pullRequestCommentSchema>;
+export type PullRequestDetail = z.infer<typeof pullRequestDetailSchema>;
 export type PullRequestState = z.infer<typeof pullRequestStateSchema>;
 export type PullRequestPersonFilter = z.infer<typeof pullRequestPersonFilterSchema>;
 export type ListPullRequestsInput = z.infer<typeof listPullRequestsInputSchema>;

@@ -17,6 +17,7 @@ export function PrTable(props: {
   compact: boolean;
   pullRequests: PullRequest[];
   opening: boolean;
+  onShow: (pullRequest: PullRequest) => void;
   onOpenWorkspace: (pullRequest: PullRequest) => void;
 }) {
   const styles = useMemo(() => tableStyles(props.theme, props.compact), [props.compact, props.theme]);
@@ -33,6 +34,7 @@ export function PrTable(props: {
           styles={styles}
           theme={props.theme}
           opening={props.opening}
+          onShow={props.onShow}
           onOpenWorkspace={props.onOpenWorkspace}
         />
       )}
@@ -50,6 +52,7 @@ function TableRow(props: {
   compact: boolean;
   opening: boolean;
   theme: PluginTheme;
+  onShow: (pullRequest: PullRequest) => void;
   onOpenWorkspace: (pullRequest: PullRequest) => void;
   styles: ReturnType<typeof tableStyles>;
 }) {
@@ -67,17 +70,16 @@ function TableRow(props: {
     .join(" · ");
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Create workspace for pull request ${pullRequest.number}`}
-      disabled={props.opening}
-      onPress={() => props.onOpenWorkspace(pullRequest)}
-      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
-        styles.row,
-        (hovered || pressed) && styles.rowHover,
-      ]}
-    >
-      <View style={styles.body}>
+    <View style={styles.row}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Show pull request ${pullRequest.number}`}
+        onPress={() => props.onShow(pullRequest)}
+        style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
+          styles.body,
+          (hovered || pressed) && styles.rowHover,
+        ]}
+      >
         <View style={styles.titleRow}>
           <Text style={styles.number}>#{pullRequest.number}</Text>
           <Text style={styles.title} numberOfLines={props.compact ? 2 : 1}>
@@ -87,19 +89,28 @@ function TableRow(props: {
         <Text style={styles.meta} numberOfLines={1}>
           {meta}
         </Text>
-      </View>
+      </Pressable>
       <View style={styles.trailing}>
         {pullRequest.waitingOnViewer ? (
           <StatusBadge theme={props.theme} label="Awaiting Review" tone="warning" />
         ) : (
           <StatusBadge theme={props.theme} label={status} tone={pullRequestStatusTone(pullRequest)} />
         )}
-        <View style={styles.actionInner}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Create workspace for pull request ${pullRequest.number}`}
+          disabled={props.opening}
+          onPress={() => props.onOpenWorkspace(pullRequest)}
+          style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
+            styles.actionInner,
+            (hovered || pressed) && styles.rowHover,
+          ]}
+        >
           <Icon name="FolderGit2" size={14} color={props.theme.colors.foregroundMuted} />
           {props.compact ? null : <Text style={styles.actionLabel}>Open</Text>}
-        </View>
+        </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
