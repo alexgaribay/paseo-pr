@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { FilterDropdown, selectedSummary, toggleSelectedId } from "./filter-dropdown.client";
-import { CountBadge, isPersonFilter, isPullRequestState } from "./inbox-helpers.client";
+import { CountBadge, isPersonFilter, isPullRequestState, repositoryLabel } from "./inbox-helpers.client";
 import { openHttpsUrl } from "./open-url.client";
 import { PrShowPanel } from "./pr-show.client";
 import { PrTable, PrTableSkeleton } from "./pr-table.client";
@@ -52,6 +52,43 @@ const PEOPLE: { id: PullRequestPersonFilter; label: string }[] = [
   { id: "anyone", label: "Anyone" },
   { id: "me", label: "Me" },
 ];
+
+
+function pullRequestMatchesSearch(pullRequest: PullRequest, search: string): boolean {
+  const query = search.trim().toLowerCase();
+  if (query.length === 0) return true;
+  return (
+    pullRequest.title.toLowerCase().includes(query) ||
+    pullRequest.author.toLowerCase().includes(query) ||
+    repositoryLabel(pullRequest).toLowerCase().includes(query) ||
+    String(pullRequest.number).includes(query)
+  );
+}
+
+function waitingInboxRows(input: {
+  listed: PullRequest[];
+  attention: PullRequest[];
+  projectIds: readonly string[];
+  states: readonly PullRequestState[];
+  author: PullRequestPersonFilter;
+  assignee: PullRequestPersonFilter;
+  search: string;
+}): PullRequest[] {
+  const personFiltersActive = input.author === "me" || input.assignee === "me";
+  const source =
+    personFiltersActive || input.attention.length === 0
+      ? input.listed.filter((pullRequest) => pullRequest.waitingOnViewer)
+      : input.attention;
+  const wantedProjects = new Set(input.projectIds);
+  const filterStates = input.states.length > 0 && input.states.length < 3;
+  return source.filter((pullRequest) => {
+    if (wantedProjects.size > 0 && !wantedProjects.has(pullRequest.projectId)) return false;
+    if (filterStates && (!isPullRequestState(pullRequest.state) || !input.states.includes(pullRequest.state))) {
+      return false;
+    }
+    return pullRequestMatchesSearch(pullRequest, input.search);
+  });
+}
 
 export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const paseo = usePaseo();
@@ -132,14 +169,13 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
     refetchInterval: refreshMs,
   });
   const listQuery = useQuery({
-    queryKey: ["pr.list", projectIds, states, author, assignee, waiting, search],
+    queryKey: ["pr.list", projectIds, states, author, assignee, search],
     queryFn: () =>
       fetchPullRequests({
         projectIds: projectIds.length > 0 ? projectIds : undefined,
         states,
         author,
         assignee,
-        waiting,
         search: search.trim() || undefined,
       }),
     enabled: statusQuery.data?.kind === "ok",
@@ -233,7 +269,20 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
 
   const projects = projectsQuery.data ?? [];
   const listResult = listQuery.data;
-  const pullRequests = listResult?.kind === "ok" ? listResult.pullRequests : [];
+  const listed = listResult?.kind === "ok" ? listResult.pullRequests : [];
+  const attentionPrs = attentionQuery.data?.kind === "ok" ? attentionQuery.data.pullRequests : [];
+  const pullRequests =
+    waiting === "me"
+      ? waitingInboxRows({
+          listed,
+          attention: attentionPrs,
+          projectIds,
+          states,
+          author,
+          assignee,
+          search,
+        })
+      : listed;
   const workspaceIds = useMemo(
     () => indexWorkspacesByPullRequest(workspacesQuery.data ?? [], pullRequests),
     [pullRequests, workspacesQuery.data],
@@ -294,13 +343,19 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
 
   const unavailable = statusQuery.data?.kind === "unavailable" ? statusQuery.data : null;
   const listError = listResult?.kind === "unavailable" || listResult?.kind === "error" ? listResult : null;
+  const listPending =
+    waiting === "me"
+      ? listed.length === 0 && attentionPrs.length === 0 && (listQuery.isLoading || attentionQuery.isLoading)
+      : listQuery.isLoading;
+  const refreshing =
+    listQuery.isFetching || attentionQuery.isFetching || projectsQuery.isFetching || statusQuery.isFetching;
   const showTable =
     pane === "inbox" &&
     !statusQuery.isLoading &&
     !projectsQuery.isLoading &&
     !unavailable &&
     projects.length > 0 &&
-    !listQuery.isLoading &&
+    !listPending &&
     !listError;
 
   function refetchAll() {
@@ -394,6 +449,21 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
                   theme={theme}
                   count={waitingCount}
                   accessibilityLabel={`${waitingCount} pull requests waiting on you`}
+                />
+              </Pressable>
+            ) : null}
+            {pane !== "settings" ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Refresh pull requests"
+                onPress={refetchAll}
+                disabled={refreshing}
+                style={styles.actionQuiet}
+              >
+                <Icon
+                  name="RefreshCw"
+                  size={14}
+                  color={refreshing ? theme.colors.foregroundMuted : theme.colors.foreground}
                 />
               </Pressable>
             ) : null}
@@ -537,7 +607,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
             <Text style={styles.actionQuietLabel}>Try again</Text>
           </Pressable>
         </View>
-      ) : listQuery.isLoading ? (
+      ) : listPending ? (
         <PrTableSkeleton theme={theme} compact={layout.compact} />
       ) : listError ? (
         <View style={styles.empty}>

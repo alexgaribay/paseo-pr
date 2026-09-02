@@ -122,6 +122,7 @@ export const attentionOutputSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("ok"),
     count: z.number().int().nonnegative(),
+    pullRequests: z.array(pullRequestSchema),
   }),
   unavailableSchema,
   errorSchema,

@@ -1,5 +1,5 @@
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
-import { countRepoWaitingPullRequests, getGhStatus, listRepoPullRequests, viewRepoPullRequest } from "./gh.server";
+import { getGhStatus, listRepoPullRequests, viewRepoPullRequest } from "./gh.server";
 import { findGithubProject, listResolvedGithubProjects } from "./projects.server";
 import type {
   AttentionOutput,
@@ -88,13 +88,33 @@ export async function handlePrAttention(
   if (status.kind !== "ok") return status;
 
   const projects = await listResolvedGithubProjects(context);
-  const results = await Promise.all(projects.map((project) => countRepoWaitingPullRequests({ repo: project.github })));
-  const keys = new Set<string>();
+  const results = await Promise.all(
+    projects.map((project) =>
+      listRepoPullRequests({
+        projectId: project.projectId,
+        repo: project.github,
+        state: "open",
+        author: "anyone",
+        assignee: "anyone",
+        waiting: "me",
+        limit: 100,
+      }),
+    ),
+  );
+
+  const seen = new Set<string>();
+  const pullRequests: PullRequest[] = [];
   for (const result of results) {
     if (result.kind !== "ok") return result;
-    for (const key of result.keys) keys.add(key);
+    for (const pullRequest of result.pullRequests) {
+      const key = `${pullRequest.owner}/${pullRequest.repo}#${pullRequest.number}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pullRequests.push(pullRequest);
+    }
   }
-  return { kind: "ok", count: keys.size };
+  pullRequests.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  return { kind: "ok", count: pullRequests.length, pullRequests };
 }
 
 function selectProjects<T extends { projectId: string }>(projects: T[], projectIds: string[] | undefined): T[] {

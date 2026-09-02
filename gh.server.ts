@@ -105,25 +105,6 @@ export async function listRepoPullRequests(input: {
   return { kind: "ok", pullRequests: mergePullRequests(pages, input.limit) };
 }
 
-export async function countRepoWaitingPullRequests(input: {
-  repo: GithubRepo;
-}): Promise<{ kind: "ok"; keys: string[] } | { kind: "error"; message: string } | GhUnavailable> {
-  const listed = await listRepoPullRequests({
-    projectId: "attention",
-    repo: input.repo,
-    state: "open",
-    author: "anyone",
-    assignee: "anyone",
-    waiting: "me",
-    limit: 100,
-  });
-  if (listed.kind !== "ok") return listed;
-  return {
-    kind: "ok",
-    keys: listed.pullRequests.map((pullRequest) => `${pullRequest.owner}/${pullRequest.repo}#${pullRequest.number}`),
-  };
-}
-
 export async function viewRepoPullRequest(input: {
   projectId: string;
   repo: GithubRepo;
