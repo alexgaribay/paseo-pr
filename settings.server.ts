@@ -8,15 +8,23 @@ import {
   type PluginSettingsOutput,
   type RefreshIntervalMinutes,
 } from "./settings.shared";
+import { loadWorkspaceLabelCatalog } from "./workspace-labels.server";
+import {
+  resolveExistingWorkspaceLabels,
+  uniqueWorkspaceLabelNames,
+  type WorkspaceLabelDefinition,
+} from "./workspace-labels.shared";
 
 interface StoredSettings {
   ghPath: string;
   refreshIntervalMinutes: RefreshIntervalMinutes;
+  workspaceLabelNames: string[];
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
   ghPath: "",
   refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
+  workspaceLabelNames: [],
 };
 
 let memory: StoredSettings | null = null;
@@ -29,6 +37,10 @@ export async function loadStoredRefreshIntervalMinutes(): Promise<RefreshInterva
   return (await loadStoredSettings()).refreshIntervalMinutes;
 }
 
+export async function loadStoredWorkspaceLabelNames(): Promise<string[]> {
+  return (await loadStoredSettings()).workspaceLabelNames;
+}
+
 export async function handleSettingsGet(): Promise<PluginSettingsOutput> {
   const stored = await loadStoredSettings();
   return await toSettingsOutput({ kind: "ok", stored });
@@ -37,6 +49,7 @@ export async function handleSettingsGet(): Promise<PluginSettingsOutput> {
 export async function handleSettingsSet(input: {
   ghPath: string;
   refreshIntervalMinutes: RefreshIntervalMinutes;
+  workspaceLabelNames: string[];
 }): Promise<PluginSettingsOutput> {
   const ghPath = input.ghPath.trim();
   if (ghPath.length > 0) {
@@ -51,9 +64,13 @@ export async function handleSettingsSet(input: {
     }
   }
 
+  const catalog = await loadWorkspaceLabelCatalog();
+  const workspaceLabelNames = persistableWorkspaceLabelNames(input.workspaceLabelNames, catalog);
+
   const next: StoredSettings = {
     ghPath,
     refreshIntervalMinutes: input.refreshIntervalMinutes,
+    workspaceLabelNames,
   };
   await writeStoredSettings(next);
   memory = next;
@@ -82,12 +99,16 @@ function parseStoredSettings(value: unknown): StoredSettings {
   if (!value || typeof value !== "object") return { ...DEFAULT_SETTINGS };
   const ghPath = "ghPath" in value ? value.ghPath : "";
   const refresh = "refreshIntervalMinutes" in value ? value.refreshIntervalMinutes : DEFAULT_REFRESH_INTERVAL_MINUTES;
+  const workspaceLabelNames = "workspaceLabelNames" in value ? value.workspaceLabelNames : [];
   return {
     ghPath: typeof ghPath === "string" ? ghPath : "",
     refreshIntervalMinutes:
       typeof refresh === "number" && isRefreshIntervalMinutes(refresh)
         ? refresh
         : DEFAULT_REFRESH_INTERVAL_MINUTES,
+    workspaceLabelNames: Array.isArray(workspaceLabelNames)
+      ? uniqueWorkspaceLabelNames(workspaceLabelNames.filter((name): name is string => typeof name === "string"))
+      : [],
   };
 }
 
@@ -97,6 +118,8 @@ async function toSettingsOutput(input: {
   message?: string;
 }): Promise<PluginSettingsOutput> {
   const resolvedGhPath = await resolveExecutable(input.stored.ghPath.trim() || "gh");
+  const workspaceLabels = await loadWorkspaceLabelCatalog();
+  const workspaceLabelNames = persistableWorkspaceLabelNames(input.stored.workspaceLabelNames, workspaceLabels);
   if (input.kind === "error") {
     return {
       kind: "error",
@@ -104,6 +127,8 @@ async function toSettingsOutput(input: {
       ghPath: input.stored.ghPath,
       resolvedGhPath,
       refreshIntervalMinutes: input.stored.refreshIntervalMinutes,
+      workspaceLabelNames,
+      workspaceLabels,
     };
   }
   return {
@@ -111,7 +136,16 @@ async function toSettingsOutput(input: {
     ghPath: input.stored.ghPath,
     resolvedGhPath,
     refreshIntervalMinutes: input.stored.refreshIntervalMinutes,
+    workspaceLabelNames,
+    workspaceLabels,
   };
+}
+
+function persistableWorkspaceLabelNames(
+  names: readonly string[],
+  catalog: readonly WorkspaceLabelDefinition[],
+): string[] {
+  return resolveExistingWorkspaceLabels(names, catalog).map((label) => label.name);
 }
 
 function settingsFilePath(): string {

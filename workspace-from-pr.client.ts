@@ -13,7 +13,8 @@ export async function createPullRequestWorkspace(input: {
   rootPath: string;
   number: number;
   title: string;
-}): Promise<{ workspaceId: string }> {
+  onCreated?: (workspaceId: string) => Promise<void>;
+}): Promise<{ workspaceId: string; labelsError: string | null }> {
   const workspace = await input.paseo.workspaces.create({
     title: `#${input.number} ${input.title}`,
     source: {
@@ -27,14 +28,15 @@ export async function createPullRequestWorkspace(input: {
       },
     },
   });
-  return { workspaceId: workspace.id };
+  return await finishCreatedWorkspace(workspace.id, input.onCreated);
 }
 
 export async function createRepoWorkspace(input: {
   paseo: Paseo;
   rootPath: string;
   title: string;
-}): Promise<{ workspaceId: string }> {
+  onCreated?: (workspaceId: string) => Promise<void>;
+}): Promise<{ workspaceId: string; labelsError: string | null }> {
   const workspace = await input.paseo.workspaces.create({
     title: input.title,
     source: {
@@ -44,7 +46,24 @@ export async function createRepoWorkspace(input: {
       baseBranch: "origin/HEAD",
     },
   });
-  return { workspaceId: workspace.id };
+  return await finishCreatedWorkspace(workspace.id, input.onCreated);
+}
+
+async function finishCreatedWorkspace(
+  workspaceId: string,
+  onCreated?: (workspaceId: string) => Promise<void>,
+): Promise<{ workspaceId: string; labelsError: string | null }> {
+  if (!onCreated) return { workspaceId, labelsError: null };
+  try {
+    await onCreated(workspaceId);
+    return { workspaceId, labelsError: null };
+  } catch (error) {
+    return {
+      workspaceId,
+      labelsError:
+        error instanceof Error ? error.message : "Could not apply workspace labels.",
+    };
+  }
 }
 
 export async function listActiveWorkspaces(paseo: Paseo): Promise<Workspace[]> {

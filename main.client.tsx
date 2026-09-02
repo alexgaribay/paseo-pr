@@ -25,6 +25,7 @@ import {
   refreshIntervalMs,
 } from "./settings.shared";
 import { SettingsPanel } from "./settings-panel.client";
+import { prWorkspaceLabelsApply } from "./workspace-labels.shared";
 import {
   ensureSidebarBadgePolling,
   setSidebarBadgePollInterval,
@@ -99,6 +100,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const fetchPullRequests = useRpc(prList);
   const fetchAttention = useRpc(prAttention);
   const fetchSettings = useRpc(prSettingsGet);
+  const applyWorkspaceLabels = useRpc(prWorkspaceLabelsApply);
 
   const [projectIds, setProjectIds] = useState<string[]>([]);
   const [states, setStates] = useState<PullRequestState[]>(["open"]);
@@ -295,10 +297,15 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const selectedProject =
     projectIds.length === 1 ? (projects.find((project) => project.projectId === projectIds[0]) ?? null) : null;
 
+  async function applyConfiguredWorkspaceLabels(workspaceId: string) {
+    const result = await applyWorkspaceLabels({ workspaceId });
+    if (result.kind === "error") throw new Error(result.message);
+  }
+
   const createPr = useMutation({
     mutationFn: async (pullRequest: PullRequest) => {
       const existing = findWorkspaceForPullRequest(await listActiveWorkspaces(paseo), pullRequest);
-      if (existing) return { workspaceId: existing.id, created: false };
+      if (existing) return { workspaceId: existing.id, created: false, labelsError: null };
       const project = projects.find((entry) => entry.projectId === pullRequest.projectId);
       if (!project) throw new Error("That GitHub project is no longer registered.");
       const created = await createPullRequestWorkspace({
@@ -306,14 +313,16 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
         rootPath: project.rootPath,
         number: pullRequest.number,
         title: pullRequest.title,
+        onCreated: applyConfiguredWorkspaceLabels,
       });
-      return { workspaceId: created.workspaceId, created: true };
+      return { workspaceId: created.workspaceId, created: true, labelsError: created.labelsError };
     },
-    onSuccess: ({ workspaceId, created }) => {
+    onSuccess: ({ workspaceId, created, labelsError }) => {
       if (created) {
         toast.show("Workspace created", { variant: "success" });
         void queryClient.invalidateQueries({ queryKey: ["pr.workspaces"] });
       }
+      if (labelsError) toast.error(labelsError);
       if (!navigation?.openWorkspace) {
         toast.error("Could not open that workspace.");
         return;
@@ -331,9 +340,11 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
         paseo,
         rootPath: project.rootPath,
         title: project.displayName,
+        onCreated: applyConfiguredWorkspaceLabels,
       }),
-    onSuccess: ({ workspaceId }) => {
+    onSuccess: ({ workspaceId, labelsError }) => {
       toast.show("Workspace created", { variant: "success" });
+      if (labelsError) toast.error(labelsError);
       navigation?.openWorkspace({ workspaceId });
     },
     onError: (error) => {

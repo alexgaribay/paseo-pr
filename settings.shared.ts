@@ -1,5 +1,9 @@
 import { defineRpc } from "@getpaseo/plugin/server";
 import { z } from "zod";
+import {
+  workspaceLabelDefinitionSchema,
+  workspaceLabelNamesSchema,
+} from "./workspace-labels.shared";
 
 export const refreshIntervalMinutesSchema = z.union([
   z.literal(0),
@@ -18,6 +22,8 @@ export const pluginSettingsSchema = z.object({
   ghPath: z.string(),
   resolvedGhPath: z.string().nullable(),
   refreshIntervalMinutes: refreshIntervalMinutesSchema,
+  workspaceLabelNames: workspaceLabelNamesSchema,
+  workspaceLabels: z.array(workspaceLabelDefinitionSchema),
 });
 
 export const pluginSettingsOutputSchema = z.discriminatedUnion("kind", [
@@ -39,6 +45,7 @@ export const prSettingsSet = defineRpc({
   input: z.object({
     ghPath: z.string(),
     refreshIntervalMinutes: refreshIntervalMinutesSchema,
+    workspaceLabelNames: workspaceLabelNamesSchema,
   }),
   output: pluginSettingsOutputSchema,
 });
