@@ -1,7 +1,7 @@
 import { useRpc, type PluginTheme } from "@getpaseo/plugin";
-import { useToast } from "@getpaseo/plugin/react-native";
+import { Icon, useToast } from "@getpaseo/plugin/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import {
   DEFAULT_REFRESH_INTERVAL_MINUTES,
@@ -26,6 +26,7 @@ export function SettingsPanel(props: {
     DEFAULT_REFRESH_INTERVAL_MINUTES,
   );
   const [workspaceLabelNames, setWorkspaceLabelNames] = useState<string[]>([]);
+  const [refreshOpen, setRefreshOpen] = useState(false);
 
   const settingsQuery = useQuery({
     queryKey: ["pr.settings"],
@@ -85,43 +86,41 @@ export function SettingsPanel(props: {
     });
   }
 
+  const ghStatus =
+    ghPath.trim().length === 0
+      ? resolved
+        ? `Auto-detected ${resolved}.`
+        : "Leave blank to auto-detect."
+      : resolved
+        ? `Using ${resolved}`
+        : "Enter the absolute path to the gh executable.";
+
   return (
     <View style={styles.screen}>
-      <View style={styles.section}>
-        <Text style={styles.heading}>Refresh</Text>
-        <Text style={styles.muted}>
-          Update the pull request list and the sidebar waiting count in the background.
-        </Text>
-        <View style={styles.chips}>
-          {REFRESH_INTERVAL_MINUTES.map((minutes) => {
-            const selected = minutes === refreshIntervalMinutes;
-            return (
-              <Pressable
-                key={minutes}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`Refresh: ${refreshIntervalLabel(minutes)}`}
-                onPress={() => {
-                  setRefreshIntervalMinutes(minutes);
-                  persist({ refreshIntervalMinutes: minutes });
-                }}
-                style={[styles.chip, selected ? styles.chipSelected : null]}
-              >
-                <Text style={selected ? styles.chipLabelSelected : styles.chipLabel}>
-                  {refreshIntervalLabel(minutes)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-      <View style={[styles.section, styles.labelsSection]}>
-        <Text style={styles.heading}>Workspace labels</Text>
-        <Text style={styles.muted}>
-          Apply these labels when this plugin creates a workspace. Jumping to an existing workspace
-          does not change its labels. Create labels in Paseo first; this plugin will not add new
-          ones.
-        </Text>
+      <SettingRow
+        styles={styles}
+        title="Refresh"
+        description="Update the pull request list and the sidebar waiting count in the background."
+        overlay="select"
+      >
+        <RefreshIntervalSelect
+          theme={props.theme}
+          styles={styles}
+          value={refreshIntervalMinutes}
+          open={refreshOpen}
+          onOpenChange={setRefreshOpen}
+          onChange={(minutes) => {
+            setRefreshIntervalMinutes(minutes);
+            persist({ refreshIntervalMinutes: minutes });
+          }}
+        />
+      </SettingRow>
+      <SettingRow
+        styles={styles}
+        title="Workspace labels"
+        description="Apply these labels when this plugin creates a workspace. Jumping to an existing workspace does not change its labels. Create labels in Paseo first; this plugin will not add new ones."
+        overlay
+      >
         <WorkspaceLabelPicker
           theme={props.theme}
           compact={props.compact}
@@ -132,9 +131,13 @@ export function SettingsPanel(props: {
             persist({ workspaceLabelNames: names });
           }}
         />
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.heading}>GitHub CLI</Text>
+      </SettingRow>
+      <SettingRow
+        styles={styles}
+        title="GitHub CLI"
+        last
+        description="Path to gh on the daemon. Leave blank to auto-detect, or enter an absolute path."
+      >
         <View style={styles.row}>
           <TextInput
             value={ghPath}
@@ -157,16 +160,97 @@ export function SettingsPanel(props: {
           </Pressable>
         </View>
         {saveError ? <Text style={styles.danger}>{saveError}</Text> : null}
-        <Text style={styles.muted}>
-          {ghPath.trim().length === 0
-            ? resolved
-              ? `Auto-detected ${resolved}. Leave blank to keep auto-detect, or enter an absolute path.`
-              : "Leave blank to auto-detect, or enter the absolute path to gh."
-            : resolved
-              ? `Using ${resolved}`
-              : "Enter the absolute path to the gh executable."}
+        <Text style={styles.muted}>{ghStatus}</Text>
+      </SettingRow>
+    </View>
+  );
+}
+
+function RefreshIntervalSelect(props: {
+  theme: PluginTheme;
+  styles: ReturnType<typeof panelStyles>;
+  value: RefreshIntervalMinutes;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChange: (minutes: RefreshIntervalMinutes) => void;
+}) {
+  const { styles } = props;
+  return (
+    <View style={styles.select}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Refresh: ${refreshIntervalLabel(props.value)}`}
+        accessibilityState={{ expanded: props.open }}
+        onPress={() => props.onOpenChange(!props.open)}
+        style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
+          styles.selectTrigger,
+          (hovered || pressed || props.open) && styles.selectTriggerHover,
+        ]}
+      >
+        <Text style={styles.selectValue} numberOfLines={1}>
+          {refreshIntervalLabel(props.value)}
         </Text>
+        <Icon
+          name={props.open ? "ChevronUp" : "ChevronDown"}
+          size={14}
+          color={props.theme.colors.foregroundMuted}
+        />
+      </Pressable>
+      {props.open ? (
+        <View style={styles.selectMenu} accessibilityRole="menu">
+          {REFRESH_INTERVAL_MINUTES.map((minutes) => {
+            const selected = minutes === props.value;
+            return (
+              <Pressable
+                key={minutes}
+                accessibilityRole="menuitem"
+                accessibilityLabel={refreshIntervalLabel(minutes)}
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  props.onChange(minutes);
+                  props.onOpenChange(false);
+                }}
+                style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
+                  styles.selectItem,
+                  (hovered || pressed) && styles.selectItemHover,
+                ]}
+              >
+                <Text style={selected ? styles.selectItemLabelSelected : styles.selectItemLabel}>
+                  {refreshIntervalLabel(minutes)}
+                </Text>
+                {selected ? (
+                  <Icon name="Check" size={12} color={props.theme.colors.foreground} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SettingRow(props: {
+  styles: ReturnType<typeof panelStyles>;
+  title: string;
+  description: string;
+  overlay?: boolean | "select";
+  last?: boolean;
+  children: ReactNode;
+}) {
+  const overlayStyle =
+    props.overlay === "select"
+      ? props.styles.selectSection
+      : props.overlay
+        ? props.styles.labelsSection
+        : null;
+  return (
+    <View style={[props.styles.section, overlayStyle, props.last ? props.styles.sectionLast : null]}>
+      <View style={props.styles.copy}>
+        <Text style={props.styles.heading}>{props.title}</Text>
+        <Text style={props.styles.muted}>{props.description}</Text>
       </View>
+      <View style={props.styles.control}>{props.children}</View>
     </View>
   );
 }
@@ -177,58 +261,100 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       flex: 1,
       paddingHorizontal: compact ? 16 : 24,
       paddingTop: compact ? 8 : 12,
-      gap: compact ? 20 : 24,
+      gap: compact ? 16 : 8,
     },
-    section: { gap: 8 },
+    section: {
+      flexDirection: compact ? ("column" as const) : ("row" as const),
+      alignItems: compact ? ("stretch" as const) : ("flex-start" as const),
+      gap: compact ? 10 : 24,
+      paddingVertical: compact ? 4 : 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    sectionLast: { borderBottomWidth: 0 },
+    copy: compact
+      ? { gap: 4 }
+      : {
+          gap: 4,
+          flexGrow: 1,
+          flexShrink: 1,
+          flexBasis: 240,
+          maxWidth: 320,
+        },
+    control: compact
+      ? { gap: 8 }
+      : {
+          gap: 8,
+          flexGrow: 1,
+          flexShrink: 1,
+          flexBasis: 280,
+          minWidth: 240,
+        },
+    selectSection: { zIndex: 40, overflow: "visible" as const },
     labelsSection: { zIndex: 30, overflow: "visible" as const },
     heading: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const },
     muted: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
     danger: { color: theme.colors.statusDanger, fontSize: 12 },
-    chips: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 8 },
-    chip: {
-      minHeight: 32,
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      backgroundColor: "transparent",
+    select: { position: "relative" as const, zIndex: 40, maxWidth: compact ? undefined : 220 },
+    selectTrigger: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "space-between" as const,
+      gap: 8,
+      minHeight: 36,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      justifyContent: "center" as const,
+      backgroundColor: theme.colors.surface2,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
     },
-    chipSelected: { backgroundColor: theme.colors.surface2, borderColor: theme.colors.foregroundMuted },
-    chipLabel: { color: theme.colors.foregroundMuted, fontSize: 14 },
-    chipLabelSelected: { color: theme.colors.foreground, fontSize: 14 },
+    selectTriggerHover: { backgroundColor: theme.colors.surface1 },
+    selectValue: { color: theme.colors.foreground, fontSize: 14, flexShrink: 1 },
+    selectMenu: {
+      position: "absolute" as const,
+      top: 40,
+      left: 0,
+      right: 0,
+      marginTop: 4,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface1,
+      borderRadius: 8,
+      overflow: "hidden" as const,
+      zIndex: 50,
+    },
+    selectItem: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "space-between" as const,
+      gap: 8,
+      minHeight: 32,
+      paddingHorizontal: 12,
+      paddingVertical: compact ? 8 : 9,
+    },
+    selectItemHover: { backgroundColor: theme.colors.surface2 },
+    selectItemLabel: { color: theme.colors.foreground, fontSize: 14 },
+    selectItemLabelSelected: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const },
     row: {
       flexDirection: "row" as const,
       flexWrap: "wrap" as const,
       alignItems: "center" as const,
       gap: 8,
     },
-    input: compact
-      ? {
-          width: "100%" as const,
-          borderWidth: 1,
-          borderColor: theme.colors.border,
-          backgroundColor: theme.colors.surface2,
-          color: theme.colors.foreground,
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          fontSize: 14,
-        }
-      : {
-          flexGrow: 1,
-          flexBasis: 280,
-          minWidth: 220,
-          borderWidth: 1,
-          borderColor: theme.colors.border,
-          backgroundColor: theme.colors.surface2,
-          color: theme.colors.foreground,
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          fontSize: 14,
-        },
+    input: {
+      flexGrow: 1,
+      flexBasis: compact ? 1 : 180,
+      minWidth: compact ? undefined : 160,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface2,
+      color: theme.colors.foreground,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 14,
+    },
     action: {
       backgroundColor: theme.colors.surface2,
       borderWidth: 1,
