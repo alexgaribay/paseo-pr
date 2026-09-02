@@ -53,7 +53,7 @@ paseo plugin reload paseo-pr
 - **Assignee: Me** lists PRs assigned to the signed-in GitHub user.
 - **Awaiting Review: Me** lists open PRs that need you: review requested, or your PR with changes requested.
 - **Reviews Awaiting on Me** on the inbox lists those waiting PRs. The sidebar **Pull requests** item still shows a count (desktop/web). Zero hides both. The count starts after the inbox is opened once, then refreshes on the interval from **Settings** (default 5 minutes).
-- **Settings** on the inbox configures background refresh (Off, 1, 2, 5, 10, 15, or 30 minutes), which existing Paseo workspace labels to apply when this plugin **creates** a workspace (not when jumping to one), and the GitHub CLI path. The open inbox list uses the same interval.
+- **Settings** on the inbox configures background refresh (Off, 1, 2, 5, 10, 15, or 30 minutes), which existing Paseo workspace labels to apply when this plugin **creates** a workspace (search and selected color pills; not applied when jumping to one), and the GitHub CLI path. The open inbox list uses the same interval.
 - Click a pull request row to open a show view with the description, conversation comments, and reviews, rendered as markdown with author avatars. **Create Workspace** creates a worktree checkout of that change request. **Jump to Workspace** opens an existing one. **View on GitHub** on the show view opens the same PR in the browser.
 - **New workspace** on a repo creates a worktree branched from `origin/HEAD`.
 - Command Center (**⌘K** / **Ctrl+K**) → **Search for PR** opens the inbox and focuses the Search field.

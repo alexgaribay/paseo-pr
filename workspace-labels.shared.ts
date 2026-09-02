@@ -77,3 +77,68 @@ export function resolveExistingWorkspaceLabels(
     return found ? [found] : [];
   });
 }
+
+export const WORKSPACE_LABEL_IDENTITY: Record<WorkspaceLabelColor, string> = {
+  violet: "#7a6aa8",
+  sky: "#3d7ea6",
+  emerald: "#388068",
+  orange: "#a4673a",
+  pink: "#b05c80",
+  indigo: "#6a70b8",
+  teal: "#368080",
+  red: "#b06260",
+  amber: "#8f7838",
+  blue: "#5179b0",
+};
+
+const WORKSPACE_LABEL_FOREGROUND_LIGHT: Record<WorkspaceLabelColor, string> = {
+  violet: "#6d49b5",
+  sky: "#3d6985",
+  emerald: "#3e6e5d",
+  orange: "#845838",
+  pink: "#974168",
+  indigo: "#5251c2",
+  teal: "#3e6d6c",
+  red: "#9c4243",
+  amber: "#716239",
+  blue: "#39649e",
+};
+
+const WORKSPACE_LABEL_FOREGROUND_DARK: Record<WorkspaceLabelColor, string> = {
+  violet: "#a392d5",
+  sky: "#6aa6ce",
+  emerald: "#6cae96",
+  orange: "#cc8f64",
+  pink: "#d87da3",
+  indigo: "#9299d5",
+  teal: "#6cacab",
+  red: "#d88381",
+  amber: "#b29d64",
+  blue: "#7ba1d5",
+};
+
+export function workspaceLabelTint(color: WorkspaceLabelColor): string {
+  return `${WORKSPACE_LABEL_IDENTITY[color]}1a`;
+}
+
+export function workspaceLabelForeground(
+  color: WorkspaceLabelColor,
+  scheme: "light" | "dark",
+): string {
+  return scheme === "light" ? WORKSPACE_LABEL_FOREGROUND_LIGHT[color] : WORKSPACE_LABEL_FOREGROUND_DARK[color];
+}
+
+export function themeColorScheme(surface0: string): "light" | "dark" {
+  const hex = surface0.trim().replace(/^#/, "");
+  const rgb =
+    hex.length >= 6
+      ? hex.slice(0, 6)
+      : hex.length === 3
+        ? hex.split("").map((ch) => ch + ch).join("")
+        : "";
+  if (rgb.length !== 6 || /[^0-9a-f]/i.test(rgb)) return "dark";
+  const r = Number.parseInt(rgb.slice(0, 2), 16) / 255;
+  const g = Number.parseInt(rgb.slice(2, 4), 16) / 255;
+  const b = Number.parseInt(rgb.slice(4, 6), 16) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.45 ? "dark" : "light";
+}

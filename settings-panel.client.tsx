@@ -11,7 +11,7 @@ import {
   refreshIntervalLabel,
   type RefreshIntervalMinutes,
 } from "./settings.shared";
-import { workspaceLabelKey, type WorkspaceLabelDefinition } from "./workspace-labels.shared";
+import { WorkspaceLabelPicker } from "./workspace-label-picker.client";
 
 export function SettingsPanel(props: {
   theme: PluginTheme;
@@ -42,10 +42,6 @@ export function SettingsPanel(props: {
 
   const styles = useMemo(() => panelStyles(props.theme, props.compact), [props.compact, props.theme]);
   const catalog = settingsQuery.data?.workspaceLabels ?? [];
-  const selectedLabelKeys = useMemo(
-    () => new Set(workspaceLabelNames.map((name) => workspaceLabelKey(name))),
-    [workspaceLabelNames],
-  );
 
   const save = useMutation({
     mutationFn: async (input: {
@@ -89,18 +85,6 @@ export function SettingsPanel(props: {
     });
   }
 
-  function toggleWorkspaceLabel(label: WorkspaceLabelDefinition) {
-    const key = workspaceLabelKey(label.name);
-    const selected = new Set(selectedLabelKeys);
-    if (selected.has(key)) selected.delete(key);
-    else selected.add(key);
-    const next = catalog
-      .filter((entry) => selected.has(workspaceLabelKey(entry.name)))
-      .map((entry) => entry.name);
-    setWorkspaceLabelNames(next);
-    persist({ workspaceLabelNames: next });
-  }
-
   return (
     <View style={styles.screen}>
       <View style={styles.section}>
@@ -131,34 +115,23 @@ export function SettingsPanel(props: {
           })}
         </View>
       </View>
-      <View style={styles.section}>
+      <View style={[styles.section, styles.labelsSection]}>
         <Text style={styles.heading}>Workspace labels</Text>
         <Text style={styles.muted}>
           Apply these labels when this plugin creates a workspace. Jumping to an existing workspace
           does not change its labels. Create labels in Paseo first; this plugin will not add new
           ones.
         </Text>
-        {catalog.length === 0 ? (
-          <Text style={styles.muted}>No workspace labels yet.</Text>
-        ) : (
-          <View style={styles.chips}>
-            {catalog.map((label) => {
-              const selected = selectedLabelKeys.has(workspaceLabelKey(label.name));
-              return (
-                <Pressable
-                  key={workspaceLabelKey(label.name)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={`Workspace label: ${label.name}`}
-                  onPress={() => toggleWorkspaceLabel(label)}
-                  style={[styles.chip, selected ? styles.chipSelected : null]}
-                >
-                  <Text style={selected ? styles.chipLabelSelected : styles.chipLabel}>{label.name}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+        <WorkspaceLabelPicker
+          theme={props.theme}
+          compact={props.compact}
+          catalog={catalog}
+          selectedNames={workspaceLabelNames}
+          onChange={(names) => {
+            setWorkspaceLabelNames(names);
+            persist({ workspaceLabelNames: names });
+          }}
+        />
       </View>
       <View style={styles.section}>
         <Text style={styles.heading}>GitHub CLI</Text>
@@ -207,6 +180,7 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       gap: compact ? 20 : 24,
     },
     section: { gap: 8 },
+    labelsSection: { zIndex: 30, overflow: "visible" as const },
     heading: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const },
     muted: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
     danger: { color: theme.colors.statusDanger, fontSize: 12 },
