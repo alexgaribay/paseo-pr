@@ -10,6 +10,7 @@ import {
   repositoryLabel,
   StatusBadge,
 } from "./inbox-helpers.client";
+import { UserAvatar } from "./avatar.client";
 import type { PullRequest } from "./pr.shared";
 import { SkeletonBone, useSkeletonPulse } from "./skeleton.client";
 
@@ -60,6 +61,7 @@ export function PrTableSkeleton(props: { theme: PluginTheme; compact: boolean })
     <View style={styles.list} accessibilityLabel="Loading pull requests">
       {SKELETON_ROWS.map((titleWidth, index) => (
         <View key={index} style={styles.row}>
+          <SkeletonBone theme={props.theme} pulse={pulse} width={24} height={24} radius={12} />
           <View style={styles.body}>
             <View style={styles.titleRow}>
               <SkeletonBone theme={props.theme} pulse={pulse} width={36} height={14} />
@@ -115,6 +117,7 @@ function TableRow(props: {
         (hovered || pressed) && styles.rowHover,
       ]}
     >
+      <UserAvatar theme={props.theme} host={pullRequest.host} login={pullRequest.author} size={24} />
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text style={styles.number}>#{pullRequest.number}</Text>
@@ -187,7 +190,7 @@ function tableStyles(theme: PluginTheme, compact: boolean) {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       gap: 12,
-      minHeight: compact ? 56 : 48,
+      minHeight: compact ? 56 : 52,
       paddingHorizontal: compact ? 16 : 24,
       paddingVertical: compact ? 10 : 8,
       borderBottomWidth: 1,

@@ -48,7 +48,7 @@ paseo plugin reload paseo-pr
 
 ## Use
 
-- Bottom sidebar **Pull requests** lists PRs for Paseo projects whose git remote is GitHub.
+- Bottom sidebar **Pull requests** lists PRs for Paseo projects whose git remote is GitHub, with the author’s avatar on each row.
 - Filter with **Repository**, **Status**, **Author**, **Assignee**, and **Awaiting Review** (checkbox items) plus search.
 - **Assignee: Me** lists PRs assigned to the signed-in GitHub user.
 - **Awaiting Review: Me** lists open PRs that need you: review requested, or your PR with changes requested.
