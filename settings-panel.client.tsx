@@ -276,10 +276,9 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       ? { gap: 4 }
       : {
           gap: 4,
-          flexGrow: 1,
+          flexGrow: 2,
           flexShrink: 1,
-          flexBasis: 240,
-          maxWidth: 320,
+          flexBasis: 0,
         },
     control: compact
       ? { gap: 8 }
@@ -287,15 +286,14 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
           gap: 8,
           flexGrow: 1,
           flexShrink: 1,
-          flexBasis: 280,
-          minWidth: 240,
+          flexBasis: 0,
         },
     selectSection: { zIndex: 40, overflow: "visible" as const },
     labelsSection: { zIndex: 30, overflow: "visible" as const },
     heading: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const },
     muted: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
     danger: { color: theme.colors.statusDanger, fontSize: 12 },
-    select: { position: "relative" as const, zIndex: 40, maxWidth: compact ? undefined : 220 },
+    select: { position: "relative" as const, zIndex: 40 },
     selectTrigger: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
