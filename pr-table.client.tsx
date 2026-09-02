@@ -61,18 +61,16 @@ export function PrTableSkeleton(props: { theme: PluginTheme; compact: boolean })
     <View style={styles.list} accessibilityLabel="Loading pull requests">
       {SKELETON_ROWS.map((titleWidth, index) => (
         <View key={index} style={styles.row}>
-          <SkeletonBone theme={props.theme} pulse={pulse} width={24} height={24} radius={12} />
           <View style={styles.body}>
             <View style={styles.titleRow}>
               <SkeletonBone theme={props.theme} pulse={pulse} width={36} height={14} />
               <SkeletonBone theme={props.theme} pulse={pulse} height={14} style={{ flex: 1, maxWidth: titleWidth * 4 }} />
             </View>
-            <SkeletonBone
-              theme={props.theme}
-              pulse={pulse}
-              height={12}
-              style={{ maxWidth: index % 2 === 0 ? 220 : 180 }}
-            />
+            <View style={styles.metaRow}>
+              <SkeletonBone theme={props.theme} pulse={pulse} width={index % 2 === 0 ? 88 : 72} height={12} />
+              <SkeletonBone theme={props.theme} pulse={pulse} width={14} height={14} radius={7} />
+              <SkeletonBone theme={props.theme} pulse={pulse} width={64} height={12} />
+            </View>
           </View>
           <View style={styles.trailing}>
             <SkeletonBone theme={props.theme} pulse={pulse} width={72} height={22} radius={999} />
@@ -97,15 +95,7 @@ function TableRow(props: {
   const { pullRequest, styles } = props;
   const status = formatPullRequestStatus(pullRequest);
   const assignees = formatAssignees(pullRequest);
-  const meta = [
-    repositoryLabel(pullRequest),
-    pullRequest.author,
-    assignees ? `→ ${assignees}` : null,
-    pullRequest.headRefName,
-    formatUpdatedAt(pullRequest.updatedAt),
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(" · ");
+  const updatedAt = formatUpdatedAt(pullRequest.updatedAt);
 
   return (
     <Pressable
@@ -117,7 +107,6 @@ function TableRow(props: {
         (hovered || pressed) && styles.rowHover,
       ]}
     >
-      <UserAvatar theme={props.theme} host={pullRequest.host} login={pullRequest.author} size={24} />
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text style={styles.number}>#{pullRequest.number}</Text>
@@ -125,9 +114,42 @@ function TableRow(props: {
             {pullRequest.title}
           </Text>
         </View>
-        <Text style={styles.meta} numberOfLines={1}>
-          {meta}
-        </Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.meta} numberOfLines={1}>
+            {repositoryLabel(pullRequest)}
+          </Text>
+          <Text style={styles.metaDot}>·</Text>
+          <View style={styles.author}>
+            <UserAvatar theme={props.theme} host={pullRequest.host} login={pullRequest.author} size={14} />
+            <Text style={styles.meta} numberOfLines={1}>
+              {pullRequest.author}
+            </Text>
+          </View>
+          {assignees ? (
+            <>
+              <Text style={styles.metaDot}>·</Text>
+              <Text style={styles.meta} numberOfLines={1}>
+                → {assignees}
+              </Text>
+            </>
+          ) : null}
+          {pullRequest.headRefName ? (
+            <>
+              <Text style={styles.metaDot}>·</Text>
+              <Text style={styles.meta} numberOfLines={1}>
+                {pullRequest.headRefName}
+              </Text>
+            </>
+          ) : null}
+          {updatedAt ? (
+            <>
+              <Text style={styles.metaDot}>·</Text>
+              <Text style={styles.meta} numberOfLines={1}>
+                {updatedAt}
+              </Text>
+            </>
+          ) : null}
+        </View>
       </View>
       <View style={styles.trailing}>
         {pullRequest.waitingOnViewer ? (
@@ -190,7 +212,7 @@ function tableStyles(theme: PluginTheme, compact: boolean) {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       gap: 12,
-      minHeight: compact ? 56 : 52,
+      minHeight: compact ? 56 : 48,
       paddingHorizontal: compact ? 16 : 24,
       paddingVertical: compact ? 10 : 8,
       borderBottomWidth: 1,
@@ -201,7 +223,21 @@ function tableStyles(theme: PluginTheme, compact: boolean) {
     titleRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8, minWidth: 0 },
     number: { color: theme.colors.foregroundMuted, fontSize: 14, fontWeight: "500" as const },
     title: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const, flex: 1 },
-    meta: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
+    metaRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 6,
+      minWidth: 0,
+    },
+    author: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      flexShrink: 1,
+      minWidth: 0,
+    },
+    meta: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16, flexShrink: 1 },
+    metaDot: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16, flexShrink: 0 },
     trailing: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
