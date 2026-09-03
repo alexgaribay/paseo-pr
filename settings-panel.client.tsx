@@ -344,6 +344,7 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       flexGrow: 1,
       flexBasis: compact ? 1 : 180,
       minWidth: compact ? undefined : 160,
+      minHeight: 36,
       borderWidth: 1,
       borderColor: theme.colors.border,
       backgroundColor: theme.colors.surface2,
@@ -354,13 +355,13 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       fontSize: 14,
     },
     action: {
-      backgroundColor: theme.colors.surface2,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.accent,
+      minHeight: 36,
+      justifyContent: "center" as const,
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: 8,
     },
-    actionLabel: { color: theme.colors.foreground, fontWeight: "500" as const, fontSize: 14 },
+    actionLabel: { color: theme.colors.accentForeground, fontWeight: "500" as const, fontSize: 14 },
   };
 }

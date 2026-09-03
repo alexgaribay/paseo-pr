@@ -13,7 +13,7 @@ import {
 } from "./inbox-helpers.client";
 import { MarkdownBody } from "./markdown.client";
 import { SkeletonBone, useSkeletonPulse } from "./skeleton.client";
-import { prView, type PullRequest, type PullRequestComment, type PullRequestDetail } from "./pr.shared";
+import { prView, type PullRequest, type PullRequestComment } from "./pr.shared";
 
 export function PrShowPanel(props: {
   theme: PluginTheme;
@@ -41,7 +41,8 @@ export function PrShowPanel(props: {
   const assignees = formatAssignees(pullRequest);
   const description = detail?.body.trim() ?? "";
   const comments = detail?.comments ?? [];
-  const stats = detail ? formatDiffStats(detail) : "";
+  const filesChanged =
+    detail?.changedFiles != null ? `${detail.changedFiles} ${detail.changedFiles === 1 ? "file" : "files"}` : "";
   const branch =
     pullRequest.headRefName && detail?.baseRefName
       ? `${detail.baseRefName} ← ${pullRequest.headRefName}`
@@ -74,15 +75,18 @@ export function PrShowPanel(props: {
           ))}
       </View>
       <Text style={styles.meta}>
-        {[
-          repositoryLabel(pullRequest),
-          assignees ? `→ ${assignees}` : null,
-          branch,
-          stats,
-          `Updated ${formatUpdatedAt(pullRequest.updatedAt)}`,
-        ]
+        {[repositoryLabel(pullRequest), assignees ? `→ ${assignees}` : null, branch, filesChanged]
           .filter((part): part is string => Boolean(part))
           .join(" · ")}
+        {detail && (detail.additions !== null || detail.deletions !== null) ? (
+          <>
+            {" · "}
+            {detail.additions !== null ? <Text style={styles.statAdd}>+{detail.additions}</Text> : null}
+            {detail.additions !== null && detail.deletions !== null ? " " : null}
+            {detail.deletions !== null ? <Text style={styles.statDel}>−{detail.deletions}</Text> : null}
+          </>
+        ) : null}
+        {` · Updated ${formatUpdatedAt(pullRequest.updatedAt)}`}
       </Text>
 
       <Text style={styles.section}>Description</Text>
@@ -202,8 +206,9 @@ function CommentCard(props: {
     <View style={styles.card}>
       <View style={styles.commentHeader}>
         <UserAvatar theme={props.theme} host={props.host} login={comment.author} size={22} />
-        <Text style={styles.commentMeta}>
-          {[comment.author, kind, formatUpdatedAt(comment.createdAt), comment.path]
+        <Text style={styles.commentAuthor}>{comment.author}</Text>
+        <Text style={styles.commentMeta} numberOfLines={1}>
+          {[kind, formatUpdatedAt(comment.createdAt), comment.path]
             .filter((part): part is string => Boolean(part))
             .join(" · ")}
         </Text>
@@ -233,16 +238,6 @@ function formatCommentKind(comment: PullRequestComment): string | null {
   return "reviewed";
 }
 
-function formatDiffStats(detail: PullRequestDetail): string {
-  const parts: string[] = [];
-  if (detail.additions !== null) parts.push(`+${detail.additions}`);
-  if (detail.deletions !== null) parts.push(`-${detail.deletions}`);
-  if (detail.changedFiles !== null) {
-    parts.push(`${detail.changedFiles} ${detail.changedFiles === 1 ? "file" : "files"}`);
-  }
-  return parts.join(" ");
-}
-
 function showStyles(theme: PluginTheme, compact: boolean) {
   return {
     scroll: { flex: 1 },
@@ -258,6 +253,8 @@ function showStyles(theme: PluginTheme, compact: boolean) {
     badges: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: 6 },
     people: { flexDirection: "row" as const, flexWrap: "wrap" as const, alignItems: "center" as const, gap: 10 },
     meta: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
+    statAdd: { color: theme.colors.statusSuccess, fontSize: 12, lineHeight: 16, fontWeight: "500" as const },
+    statDel: { color: theme.colors.statusDanger, fontSize: 12, lineHeight: 16, fontWeight: "500" as const },
     section: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const, marginTop: 8 },
     card: {
       backgroundColor: theme.colors.surface1,
@@ -268,6 +265,7 @@ function showStyles(theme: PluginTheme, compact: boolean) {
       gap: 8,
     },
     commentHeader: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8 },
+    commentAuthor: { color: theme.colors.foreground, fontSize: 12, fontWeight: "500" as const, flexShrink: 0 },
     commentMeta: { color: theme.colors.foregroundMuted, fontSize: 12, flex: 1 },
     muted: { color: theme.colors.foregroundMuted, fontSize: 14 },
     danger: { color: theme.colors.statusDanger, fontSize: 14 },

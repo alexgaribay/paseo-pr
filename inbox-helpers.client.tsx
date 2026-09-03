@@ -15,6 +15,7 @@ export function StatusBadge(props: {
         : props.tone === "danger"
           ? props.theme.colors.statusDanger
           : props.theme.colors.foregroundMuted;
+  const tinted = props.tone !== "muted" && isHexColor(color);
   return (
     <View
       style={{
@@ -23,15 +24,23 @@ export function StatusBadge(props: {
         gap: 6,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: props.theme.colors.border,
-        backgroundColor: props.theme.colors.surface2,
+        borderColor: tinted ? withAlpha(color, "59") : props.theme.colors.border,
+        backgroundColor: tinted ? withAlpha(color, "26") : props.theme.colors.surface2,
         paddingHorizontal: 8,
-        paddingVertical: 3,
+        paddingVertical: 2,
       }}
     >
-      <Text style={{ color, fontSize: 12 }}>{props.label}</Text>
+      <Text style={{ color, fontSize: 11, fontWeight: "500", lineHeight: 14 }}>{props.label}</Text>
     </View>
   );
+}
+
+function isHexColor(value: string): boolean {
+  return /^#[0-9a-fA-F]{6}$/u.test(value);
+}
+
+function withAlpha(color: string, alphaHex: string): string {
+  return `${color}${alphaHex}`;
 }
 
 export function CountBadge(props: {
@@ -42,6 +51,8 @@ export function CountBadge(props: {
 }) {
   if (props.count <= 0) return null;
   const label = props.count > 99 ? "99+" : String(props.count);
+  const warning = props.theme.colors.statusWarning;
+  const tinted = isHexColor(warning);
   const body = (
     <View
       style={{
@@ -51,12 +62,12 @@ export function CountBadge(props: {
         borderRadius: 999,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: props.theme.colors.surface2,
+        backgroundColor: tinted ? withAlpha(warning, "26") : props.theme.colors.surface2,
         borderWidth: 1,
-        borderColor: props.theme.colors.border,
+        borderColor: tinted ? withAlpha(warning, "59") : props.theme.colors.border,
       }}
     >
-      <Text style={{ color: props.theme.colors.foreground, fontSize: 11, fontWeight: "500" }}>{label}</Text>
+      <Text style={{ color: tinted ? warning : props.theme.colors.foreground, fontSize: 11, fontWeight: "500" }}>{label}</Text>
     </View>
   );
   if (!props.onPress) return body;
@@ -87,7 +98,6 @@ export function pullRequestStatusTone(pullRequest: PullRequest): "success" | "wa
   if (pullRequest.waitingOnViewer) return "warning";
   if (pullRequest.isDraft && pullRequest.state === "open") return "muted";
   if (pullRequest.state === "open") return "success";
-  if (pullRequest.state === "merged") return "warning";
   return "muted";
 }
 

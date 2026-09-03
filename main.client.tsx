@@ -220,8 +220,10 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
         zIndex: 30,
         paddingHorizontal: compact ? 16 : 24,
         paddingTop: compact ? 12 : 16,
-        paddingBottom: compact ? 8 : 12,
+        paddingBottom: compact ? 10 : 12,
         gap: compact ? 8 : 10,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
       },
       toolbar: {
         flexDirection: "row" as const,
@@ -236,12 +238,26 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
         flexDirection: "row" as const,
         flexWrap: "wrap" as const,
         alignItems: "center" as const,
-        gap: 4,
+        gap: 6,
         overflow: "visible" as const,
       },
-      search: compact
-        ? { ...searchField, width: "100%" as const, paddingVertical: 8 }
-        : { ...searchField, flexGrow: 1, flexBasis: 180, minWidth: 160, paddingVertical: 7 },
+      searchWrap: compact
+        ? { position: "relative" as const, width: "100%" as const, justifyContent: "center" as const }
+        : {
+            position: "relative" as const,
+            flexGrow: 1,
+            flexBasis: 180,
+            minWidth: 160,
+            justifyContent: "center" as const,
+          },
+      search: { ...searchField, width: "100%" as const, paddingVertical: compact ? 8 : 7, paddingLeft: 32 },
+      searchIcon: {
+        position: "absolute" as const,
+        left: 10,
+        top: 0,
+        bottom: 0,
+        justifyContent: "center" as const,
+      },
       actionQuiet: {
         minHeight: 32,
         backgroundColor: "transparent",
@@ -569,17 +585,22 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
                 />
               }
             />
-            <TextInput
-              ref={searchInputRef}
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search"
-              placeholderTextColor={theme.colors.foregroundMuted}
-              style={styles.search}
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessibilityLabel="Search pull requests"
-            />
+            <View style={styles.searchWrap}>
+              <TextInput
+                ref={searchInputRef}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search"
+                placeholderTextColor={theme.colors.foregroundMuted}
+                style={styles.search}
+                autoCapitalize="none"
+                autoCorrect={false}
+                accessibilityLabel="Search pull requests"
+              />
+              <View pointerEvents="none" style={styles.searchIcon}>
+                <Icon name="Search" size={14} color={theme.colors.foregroundMuted} />
+              </View>
+            </View>
           </View>
         ) : null}
       </View>

@@ -199,7 +199,7 @@ function RowButton(props: {
         props.disabled ? props.styles.buttonDisabled : null,
       ]}
     >
-      <Icon name={props.icon} size={14} color={props.theme.colors.foreground} />
+      <Icon name={props.icon} size={14} color={props.theme.colors.foregroundMuted} />
       <Text style={props.styles.buttonLabel}>{props.label}</Text>
     </Pressable>
   );
@@ -221,7 +221,7 @@ function tableStyles(theme: PluginTheme, compact: boolean) {
     rowHover: { backgroundColor: theme.colors.surface1 },
     body: { flex: 1, gap: 4, minWidth: 0 },
     titleRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8, minWidth: 0 },
-    number: { color: theme.colors.foregroundMuted, fontSize: 14, fontWeight: "500" as const },
+    number: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
     title: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const, flex: 1 },
     metaRow: {
       flexDirection: "row" as const,
@@ -251,13 +251,13 @@ function tableStyles(theme: PluginTheme, compact: boolean) {
       paddingVertical: 6,
       borderRadius: 8,
       borderWidth: 1,
-      borderColor: theme.colors.border,
-      backgroundColor: theme.colors.surface2,
+      borderColor: "transparent",
+      backgroundColor: "transparent",
       flexDirection: "row" as const,
       alignItems: "center" as const,
       gap: 6,
     },
-    buttonHover: { backgroundColor: theme.colors.surface1 },
+    buttonHover: { backgroundColor: theme.colors.surface2, borderColor: theme.colors.border },
     buttonDisabled: { opacity: 0.5 },
     buttonLabel: { color: theme.colors.foreground, fontSize: 12, fontWeight: "500" as const },
     empty: { paddingHorizontal: compact ? 16 : 24, paddingVertical: compact ? 28 : 40 },

@@ -474,6 +474,8 @@ function markdownStyles(theme: PluginTheme, platform: "ios" | "android" | "web")
       backgroundColor: theme.colors.surface2,
       fontFamily: mono,
       fontSize: 13,
+      paddingHorizontal: 3,
+      borderRadius: 4,
     },
     codeBlock: {
       backgroundColor: theme.colors.surface2,
