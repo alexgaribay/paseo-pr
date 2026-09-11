@@ -1,5 +1,5 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { Icon } from "@getpaseo/plugin/react-native";
+import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import {
@@ -9,7 +9,7 @@ import {
   WORKSPACE_LABEL_IDENTITY,
   workspaceLabelTint,
   type WorkspaceLabelDefinition,
-} from "./workspace-labels.shared";
+} from "../shared/workspace-labels";
 
 export function WorkspaceLabelPicker(props: {
   theme: PluginTheme;

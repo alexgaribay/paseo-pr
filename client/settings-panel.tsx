@@ -1,5 +1,6 @@
-import { useRpc, type PluginTheme } from "@getpaseo/plugin";
-import { Icon, useToast } from "@getpaseo/plugin/react-native";
+import { useRpc } from "@getpaseo/plugin/client";
+import type { PluginTheme } from "@getpaseo/plugin";
+import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
@@ -10,8 +11,8 @@ import {
   prSettingsSet,
   refreshIntervalLabel,
   type RefreshIntervalMinutes,
-} from "./settings.shared";
-import { WorkspaceLabelPicker } from "./workspace-label-picker.client";
+} from "../shared/settings";
+import { WorkspaceLabelPicker } from "./workspace-label-picker";
 
 export function SettingsPanel(props: {
   theme: PluginTheme;

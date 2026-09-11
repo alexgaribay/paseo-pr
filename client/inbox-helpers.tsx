@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import type { PluginTheme } from "@getpaseo/plugin";
-import type { PullRequest, PullRequestPersonFilter, PullRequestState } from "./pr.shared";
+import type { PullRequest, PullRequestPersonFilter, PullRequestState } from "../shared/pr";
 
 export function StatusBadge(props: {
   theme: PluginTheme;

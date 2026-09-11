@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useState } from "react";
 import { Image, Text, View } from "react-native";
-import { githubAvatarUrl } from "./github-avatar.shared";
+import { githubAvatarUrl } from "../shared/github-avatar";
 
 export function UserAvatar(props: {
   theme: PluginTheme;

@@ -1,9 +1,9 @@
-import { defineRpc } from "@getpaseo/plugin/server";
+import { defineRpc } from "@getpaseo/plugin";
 import { z } from "zod";
 import {
   workspaceLabelDefinitionSchema,
   workspaceLabelNamesSchema,
-} from "./workspace-labels.shared";
+} from "./workspace-labels";
 
 export const refreshIntervalMinutesSchema = z.union([
   z.literal(0),

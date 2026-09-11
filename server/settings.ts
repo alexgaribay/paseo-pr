@@ -1,19 +1,19 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { clearResolvedCommands, expandHome, resolveExecutable } from "./command-path.server";
+import { clearResolvedCommands, expandHome, resolveExecutable } from "./command-path";
 import {
   DEFAULT_REFRESH_INTERVAL_MINUTES,
   isRefreshIntervalMinutes,
   type PluginSettingsOutput,
   type RefreshIntervalMinutes,
-} from "./settings.shared";
-import { loadWorkspaceLabelCatalog } from "./workspace-labels.server";
+} from "../shared/settings";
+import { loadWorkspaceLabelCatalog } from "./workspace-labels";
 import {
   resolveExistingWorkspaceLabels,
   uniqueWorkspaceLabelNames,
   type WorkspaceLabelDefinition,
-} from "./workspace-labels.shared";
+} from "../shared/workspace-labels";
 
 interface StoredSettings {
   ghPath: string;

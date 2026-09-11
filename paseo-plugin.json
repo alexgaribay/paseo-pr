@@ -1,3 +1,4 @@
 {
-  "id": "paseo-pr"
+  "id": "paseo-pr",
+  "requirements": { "paseo": ">=0.8.0" }
 }

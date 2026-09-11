@@ -1,13 +1,13 @@
-import { usePaseo, useRpc, type PluginSurfaceProps } from "@getpaseo/plugin";
-import { Icon, useToast } from "@getpaseo/plugin/react-native";
+import { usePaseo, useRpc, type PluginSurfaceProps } from "@getpaseo/plugin/client";
+import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { FilterDropdown, selectedSummary, toggleSelectedId } from "./filter-dropdown.client";
-import { CountBadge, isPersonFilter, isPullRequestState, repositoryLabel } from "./inbox-helpers.client";
-import { openHttpsUrl } from "./open-url.client";
-import { PrShowPanel } from "./pr-show.client";
-import { PrTable, PrTableSkeleton } from "./pr-table.client";
+import { FilterDropdown, selectedSummary, toggleSelectedId } from "./filter-dropdown";
+import { CountBadge, isPersonFilter, isPullRequestState, repositoryLabel } from "./inbox-helpers";
+import { openHttpsUrl } from "./open-url";
+import { PrShowPanel } from "./pr-show";
+import { PrTable, PrTableSkeleton } from "./pr-table";
 import {
   prAttention,
   prList,
@@ -17,20 +17,20 @@ import {
   type PullRequest,
   type PullRequestPersonFilter,
   type PullRequestState,
-} from "./pr.shared";
-import { subscribeInboxFocus } from "./search-pr-request.client";
+} from "../shared/pr";
+import { subscribeInboxFocus } from "./search-pr-request";
 import {
   DEFAULT_REFRESH_INTERVAL_MINUTES,
   prSettingsGet,
   refreshIntervalMs,
-} from "./settings.shared";
-import { SettingsPanel } from "./settings-panel.client";
-import { prWorkspaceLabelsApply } from "./workspace-labels.shared";
+} from "../shared/settings";
+import { SettingsPanel } from "./settings-panel";
+import { prWorkspaceLabelsApply } from "../shared/workspace-labels";
 import {
   ensureSidebarBadgePolling,
   setSidebarBadgePollInterval,
   setSidebarBadgeTheme,
-} from "./sidebar-badge.client";
+} from "./sidebar-badge";
 import {
   createPullRequestWorkspace,
   createRepoWorkspace,
@@ -38,7 +38,7 @@ import {
   indexWorkspacesByPullRequest,
   listActiveWorkspaces,
   pullRequestWorkspaceKey,
-} from "./workspace-from-pr.client";
+} from "./workspace-from-pr";
 
 type OpenFilter = "repository" | "status" | "author" | "assignee" | "waiting" | null;
 type Pane = "inbox" | "settings";

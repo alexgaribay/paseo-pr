@@ -1,6 +1,6 @@
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
-import { getGhStatus, listRepoPullRequests, viewRepoPullRequest } from "./gh.server";
-import { findGithubProject, listResolvedGithubProjects } from "./projects.server";
+import { getGhStatus, listRepoPullRequests, viewRepoPullRequest } from "./gh";
+import { findGithubProject, listResolvedGithubProjects } from "./projects";
 import type {
   AttentionOutput,
   ListPullRequestsInput,
@@ -8,7 +8,7 @@ import type {
   PullRequest,
   PullRequestState,
   ViewPullRequestOutput,
-} from "./pr.shared";
+} from "../shared/pr";
 
 export async function handlePrStatus(_input: Record<string, never>) {
   return await getGhStatus();

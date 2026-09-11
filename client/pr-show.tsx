@@ -1,8 +1,9 @@
-import { useRpc, type PluginTheme } from "@getpaseo/plugin";
+import { useRpc } from "@getpaseo/plugin/client";
+import type { PluginTheme } from "@getpaseo/plugin";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { UserAvatar } from "./avatar.client";
+import { UserAvatar } from "./avatar";
 import {
   formatAssignees,
   formatPullRequestStatus,
@@ -10,10 +11,10 @@ import {
   pullRequestStatusTone,
   repositoryLabel,
   StatusBadge,
-} from "./inbox-helpers.client";
-import { MarkdownBody } from "./markdown.client";
-import { SkeletonBone, useSkeletonPulse } from "./skeleton.client";
-import { prView, type PullRequest, type PullRequestComment } from "./pr.shared";
+} from "./inbox-helpers";
+import { MarkdownBody } from "./markdown";
+import { SkeletonBone, useSkeletonPulse } from "./skeleton";
+import { prView, type PullRequest, type PullRequestComment } from "../shared/pr";
 
 export function PrShowPanel(props: {
   theme: PluginTheme;

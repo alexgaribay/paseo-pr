@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import { commandEnv, resolveCommand } from "./command-path.server";
-import { loadStoredGhPath } from "./settings.server";
+import { commandEnv, resolveCommand } from "./command-path";
+import { loadStoredGhPath } from "./settings";
 
 export type CommandFailure = "missing" | "timeout";
 

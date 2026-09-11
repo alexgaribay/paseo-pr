@@ -1,4 +1,4 @@
-import { Icon } from "@getpaseo/plugin/react-native";
+import { Icon } from "@getpaseo/plugin/client/react-native";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useMemo } from "react";
 import { FlatList, Pressable, Text, View, type GestureResponderEvent } from "react-native";
@@ -9,10 +9,10 @@ import {
   pullRequestStatusTone,
   repositoryLabel,
   StatusBadge,
-} from "./inbox-helpers.client";
-import { UserAvatar } from "./avatar.client";
-import type { PullRequest } from "./pr.shared";
-import { SkeletonBone, useSkeletonPulse } from "./skeleton.client";
+} from "./inbox-helpers";
+import { UserAvatar } from "./avatar";
+import type { PullRequest } from "../shared/pr";
+import { SkeletonBone, useSkeletonPulse } from "./skeleton";
 
 const SKELETON_ROWS = [72, 58, 66, 48, 70, 54, 62, 44] as const;
 

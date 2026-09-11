@@ -1,7 +1,7 @@
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
-import { parseGithubProjectKey, parseGithubRemoteUrl, type GithubRepo } from "./github-remote.shared";
-import { readOriginRemoteUrl } from "./gh.server";
-import type { GithubProject } from "./pr.shared";
+import { parseGithubProjectKey, parseGithubRemoteUrl, type GithubRepo } from "../shared/github-remote";
+import { readOriginRemoteUrl } from "./gh";
+import type { GithubProject } from "../shared/pr";
 
 export interface ResolvedGithubProject extends GithubProject {
   github: GithubRepo;

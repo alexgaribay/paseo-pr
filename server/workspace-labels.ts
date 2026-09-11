@@ -8,7 +8,7 @@ import {
   workspaceLabelDefinitionSchema,
   type WorkspaceLabelDefinition,
   type WorkspaceLabelsApplyOutput,
-} from "./workspace-labels.shared";
+} from "../shared/workspace-labels";
 
 const ASSIGN_TIMEOUT_MS = 15_000;
 

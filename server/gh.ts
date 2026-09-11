@@ -1,8 +1,8 @@
-import { ghRepoFlag, type GithubRepo } from "./github-remote.shared";
-import { type GhStatus, type PullRequest, type PullRequestComment, type PullRequestDetail } from "./pr.shared";
-import { runCommand } from "./run-command.server";
-import { loadStoredGhPath } from "./settings.server";
-import { expandHome } from "./command-path.server";
+import { ghRepoFlag, type GithubRepo } from "../shared/github-remote";
+import { type GhStatus, type PullRequest, type PullRequestComment, type PullRequestDetail } from "../shared/pr";
+import { runCommand } from "./run-command";
+import { loadStoredGhPath } from "./settings";
+import { expandHome } from "./command-path";
 
 type GhUnavailable = Extract<GhStatus, { kind: "unavailable" }>;
 

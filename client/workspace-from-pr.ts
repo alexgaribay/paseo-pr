@@ -1,5 +1,5 @@
-import { usePaseo } from "@getpaseo/plugin";
-import type { PullRequest } from "./pr.shared";
+import { usePaseo } from "@getpaseo/plugin/client";
+import type { PullRequest } from "../shared/pr";
 
 type Paseo = ReturnType<typeof usePaseo>;
 type Workspace = Awaited<ReturnType<Paseo["workspaces"]["list"]>>["entries"][number];

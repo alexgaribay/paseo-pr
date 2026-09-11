@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import type { ReactNode } from "react";
 import { Image, Text, View } from "react-native";
-import { isAllowedHttpsUrl, openHttpsUrl, resolveMarkdownUrl } from "./open-url.client";
+import { isAllowedHttpsUrl, openHttpsUrl, resolveMarkdownUrl } from "./open-url";
 
 type MarkdownInline =
   | { kind: "text"; value: string }
