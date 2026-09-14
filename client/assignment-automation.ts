@@ -30,7 +30,15 @@ export function startAssignmentAutomation(client: PluginClientContext): () => vo
               const project = projects.find((entry) => entry.projectId === pullRequest.projectId);
               if (!project) continue;
               try {
-                await automate({ client, pullRequest, rootPath: project.rootPath, provider: settings.assignmentAutomation.provider, prompt: settings.assignmentAutomation.prompt });
+                await automate({
+                  client,
+                  pullRequest,
+                  rootPath: project.rootPath,
+                  provider: settings.assignmentAutomation.provider,
+                  prompt: settings.assignmentAutomation.prompt,
+                  thinkingOptionId: settings.assignmentAutomation.thinkingOptionId,
+                  modeId: settings.assignmentAutomation.modeId,
+                });
                 seen.add(key);
               } catch {
                 // Retry this assignment on the next poll.
@@ -53,7 +61,15 @@ export function startAssignmentAutomation(client: PluginClientContext): () => vo
   };
 }
 
-async function automate(input: { client: PluginClientContext; pullRequest: PullRequest; rootPath: string; provider: string; prompt: string }) {
+async function automate(input: {
+  client: PluginClientContext;
+  pullRequest: PullRequest;
+  rootPath: string;
+  provider: string;
+  prompt: string;
+  thinkingOptionId: string | null;
+  modeId: string | null;
+}) {
   if (input.provider.trim().length === 0 || input.prompt.trim().length === 0) return;
   const existing = findWorkspaceForPullRequest(await listActiveWorkspaces(input.client.paseo), input.pullRequest);
   const workspace = existing
@@ -71,7 +87,11 @@ async function automate(input: { client: PluginClientContext; pullRequest: PullR
         })).workspaceId,
       };
   await input.client.paseo.workspaces.ref(workspace.id).agents.create({
-    config: { provider: input.provider.trim() },
+    config: {
+      provider: input.provider.trim(),
+      ...(input.thinkingOptionId ? { thinkingOptionId: input.thinkingOptionId } : {}),
+      ...(input.modeId ? { modeId: input.modeId } : {}),
+    },
     prompt: input.prompt,
     title: `PR #${input.pullRequest.number}: ${input.pullRequest.title}`,
   });

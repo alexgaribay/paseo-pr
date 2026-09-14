@@ -24,6 +24,8 @@ export const assignmentAutomationSchema = z.object({
   enabled: z.boolean(),
   provider: z.string(),
   prompt: z.string(),
+  thinkingOptionId: z.string().nullable(),
+  modeId: z.string().nullable(),
 });
 
 export const pluginSettingsSchema = z.object({

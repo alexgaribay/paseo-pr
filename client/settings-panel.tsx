@@ -1,5 +1,5 @@
 import { usePaseo, useRpc } from "@getpaseo/plugin/client";
-import { SettingsAction, SettingsSection, SettingsSwitch } from "@getpaseo/plugin/client/ui";
+import { SettingsAction, SettingsSection, SettingsSelect, SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -33,6 +33,8 @@ export function SettingsPanel(props: {
     enabled: false,
     provider: "",
     prompt: "",
+    thinkingOptionId: null as string | null,
+    modeId: null as string | null,
   });
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
@@ -66,13 +68,26 @@ export function SettingsPanel(props: {
           .map((model) => ({ label: `${entry.provider} · ${model.label}`, value: `${entry.provider}/${model.id}` }))
       : [],
   );
+  const [selectedProviderId, selectedModelId] = assignmentAutomation.provider.split("/", 2);
+  const selectedProvider = (providersQuery.data?.entries ?? []).find(
+    (entry) => entry.provider === selectedProviderId,
+  );
+  const selectedModel = selectedProvider?.models?.find((model) => model.id === selectedModelId);
+  const thinkingOptions = selectedModel?.thinkingOptions ?? [];
+  const modeOptions = selectedProvider?.modes ?? [];
 
   const save = useMutation({
     mutationFn: async (input: {
       ghPath: string;
       refreshIntervalMinutes: RefreshIntervalMinutes;
       workspaceLabelNames: string[];
-      assignmentAutomation: { enabled: boolean; provider: string; prompt: string };
+      assignmentAutomation: {
+        enabled: boolean;
+        provider: string;
+        prompt: string;
+        thinkingOptionId: string | null;
+        modeId: string | null;
+      };
     }) => await saveSettings(input),
     onSuccess: (result, input) => {
       if (result.kind === "error") {
@@ -103,7 +118,13 @@ export function SettingsPanel(props: {
     ghPath?: string;
     refreshIntervalMinutes?: RefreshIntervalMinutes;
     workspaceLabelNames?: string[];
-    assignmentAutomation?: { enabled: boolean; provider: string; prompt: string };
+    assignmentAutomation?: {
+      enabled: boolean;
+      provider: string;
+      prompt: string;
+      thinkingOptionId: string | null;
+      modeId: string | null;
+    };
   }) {
     save.mutate({
       ghPath: next.ghPath ?? ghPath,
@@ -186,7 +207,15 @@ export function SettingsPanel(props: {
             onOpenChange={setModelPickerOpen}
             onQueryChange={setModelSearch}
             onChange={(provider) => {
-              setAssignmentAutomation((current) => ({ ...current, provider }));
+              const [providerId, modelId] = provider.split("/", 2);
+              const entry = (providersQuery.data?.entries ?? []).find((candidate) => candidate.provider === providerId);
+              const model = entry?.models?.find((candidate) => candidate.id === modelId);
+              setAssignmentAutomation((current) => ({
+                ...current,
+                provider,
+                thinkingOptionId: model?.defaultThinkingOptionId ?? null,
+                modeId: entry?.defaultModeId ?? null,
+              }));
               setModelPickerOpen(false);
             }}
           />
@@ -207,6 +236,24 @@ export function SettingsPanel(props: {
             accessibilityLabel="Assigned PR automation default prompt"
           />
         </SettingRow>
+        <SettingsSelect
+          label="Thinking level"
+          hint="Controls the reasoning effort used for this model."
+          value={assignmentAutomation.thinkingOptionId ?? ""}
+          options={thinkingOptions.map((option) => ({ label: option.label, value: option.id }))}
+          onValueChange={(thinkingOptionId) =>
+            setAssignmentAutomation((current) => ({ ...current, thinkingOptionId: thinkingOptionId || null }))
+          }
+          disabled={thinkingOptions.length === 0}
+        />
+        <SettingsSelect
+          label="Access level"
+          hint="Uses the selected provider's normal agent mode."
+          value={assignmentAutomation.modeId ?? ""}
+          options={modeOptions.map((option) => ({ label: option.label, value: option.id }))}
+          onValueChange={(modeId) => setAssignmentAutomation((current) => ({ ...current, modeId: modeId || null }))}
+          disabled={modeOptions.length === 0}
+        />
         <SettingsAction
           label="Save automation"
           actionLabel={save.isPending ? "Saving…" : "Save"}

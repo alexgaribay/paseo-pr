@@ -24,6 +24,8 @@ interface StoredSettings {
     enabled: boolean;
     provider: string;
     prompt: string;
+    thinkingOptionId: string | null;
+    modeId: string | null;
   };
 }
 
@@ -31,7 +33,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   ghPath: "",
   refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
   workspaceLabelNames: [],
-  assignmentAutomation: { enabled: false, provider: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
+  assignmentAutomation: { enabled: false, provider: "", prompt: DEFAULT_ASSIGNMENT_PROMPT, thinkingOptionId: null, modeId: null },
 };
 
 let memory: StoredSettings | null = null;
@@ -94,6 +96,8 @@ export async function handleSettingsSet(input: {
       enabled: input.assignmentAutomation.enabled,
       provider,
       prompt,
+      thinkingOptionId: input.assignmentAutomation.thinkingOptionId?.trim() || null,
+      modeId: input.assignmentAutomation.modeId?.trim() || null,
     },
   };
   await writeStoredSettings(next);
@@ -147,8 +151,15 @@ function parseStoredSettings(value: unknown): StoredSettings {
               assignmentAutomation.prompt.trim().length > 0
                 ? assignmentAutomation.prompt
                 : DEFAULT_ASSIGNMENT_PROMPT,
+            thinkingOptionId:
+              "thinkingOptionId" in assignmentAutomation && typeof assignmentAutomation.thinkingOptionId === "string"
+                ? assignmentAutomation.thinkingOptionId
+                : null,
+            modeId: "modeId" in assignmentAutomation && typeof assignmentAutomation.modeId === "string"
+              ? assignmentAutomation.modeId
+              : null,
           }
-        : { enabled: false, provider: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
+        : { enabled: false, provider: "", prompt: DEFAULT_ASSIGNMENT_PROMPT, thinkingOptionId: null, modeId: null },
   };
 }
 
