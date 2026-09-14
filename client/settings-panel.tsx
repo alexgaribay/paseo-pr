@@ -75,7 +75,16 @@ export function SettingsPanel(props: {
   const selectedProvider = (providersQuery.data?.entries ?? []).find(
     (entry) => entry.provider === selectedProviderId,
   );
-  const selectedModel = selectedProvider?.models?.find((model) => model.id === selectedModelId);
+  const selectedModelQuery = useQuery({
+    queryKey: ["paseo.provider-models", selectedProviderId],
+    queryFn: async () => {
+      if (!selectedProvider) throw new Error("Selected provider is unavailable.");
+      return await paseo.providers.listModels(selectedProvider.provider);
+    },
+    enabled: selectedProvider !== undefined,
+    staleTime: 60_000,
+  });
+  const selectedModel = selectedModelQuery.data?.models?.find((model) => model.id === selectedModelId);
   const thinkingOptions = selectedModel?.thinkingOptions ?? [];
   const modeOptions = selectedProvider?.modes ?? [];
 
