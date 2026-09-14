@@ -169,13 +169,11 @@ export function SettingsPanel(props: {
           value={assignmentAutomation.enabled}
           onValueChange={(enabled) => setAssignmentAutomation((current) => ({ ...current, enabled }))}
         />
-        <View style={styles.automationPrompt}>
-          <View style={styles.automationPromptCopy}>
-            <Text style={styles.heading}>Model</Text>
-            <Text style={styles.muted}>
-              {providersQuery.isLoading ? "Loading available models…" : "Use the same provider/model catalog as Paseo."}
-            </Text>
-          </View>
+        <SettingRow
+          styles={styles}
+          title="Model"
+          description={providersQuery.isLoading ? "Loading available models…" : "Use the same provider/model catalog as Paseo."}
+        >
           <ModelPicker
             theme={props.theme}
             styles={styles}
@@ -191,12 +189,12 @@ export function SettingsPanel(props: {
               setModelPickerOpen(false);
             }}
           />
-        </View>
-        <View style={styles.automationPrompt}>
-          <View style={styles.automationPromptCopy}>
-            <Text style={styles.heading}>Default prompt</Text>
-            <Text style={styles.muted}>Sent to the agent after its workspace and labels are ready.</Text>
-          </View>
+        </SettingRow>
+        <SettingRow
+          styles={styles}
+          title="Default prompt"
+          description="Sent to the agent after its workspace and labels are ready."
+        >
           <TextInput
             value={assignmentAutomation.prompt}
             onChangeText={(prompt) => setAssignmentAutomation((current) => ({ ...current, prompt }))}
@@ -207,7 +205,7 @@ export function SettingsPanel(props: {
             textAlignVertical="top"
             accessibilityLabel="Assigned PR automation default prompt"
           />
-        </View>
+        </SettingRow>
         <SettingsAction
           label="Save automation"
           actionLabel={save.isPending ? "Saving…" : "Save"}
