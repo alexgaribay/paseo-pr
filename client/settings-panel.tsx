@@ -420,6 +420,8 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       fontSize: 14,
     },
     promptInput: {
+      alignSelf: "stretch" as const,
+      width: "100%" as const,
       minHeight: 128,
       borderWidth: 1,
       borderColor: theme.colors.border,
