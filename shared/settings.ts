@@ -18,12 +18,19 @@ export const refreshIntervalMinutesSchema = z.union([
 export const REFRESH_INTERVAL_MINUTES = [0, 1, 2, 5, 10, 15, 30] as const;
 export const DEFAULT_REFRESH_INTERVAL_MINUTES = 5;
 
+export const assignmentAutomationSchema = z.object({
+  enabled: z.boolean(),
+  provider: z.string(),
+  prompt: z.string(),
+});
+
 export const pluginSettingsSchema = z.object({
   ghPath: z.string(),
   resolvedGhPath: z.string().nullable(),
   refreshIntervalMinutes: refreshIntervalMinutesSchema,
   workspaceLabelNames: workspaceLabelNamesSchema,
   workspaceLabels: z.array(workspaceLabelDefinitionSchema),
+  assignmentAutomation: assignmentAutomationSchema,
 });
 
 export const pluginSettingsOutputSchema = z.discriminatedUnion("kind", [
@@ -46,6 +53,7 @@ export const prSettingsSet = defineRpc({
     ghPath: z.string(),
     refreshIntervalMinutes: refreshIntervalMinutesSchema,
     workspaceLabelNames: workspaceLabelNamesSchema,
+    assignmentAutomation: assignmentAutomationSchema,
   }),
   output: pluginSettingsOutputSchema,
 });

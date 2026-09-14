@@ -27,6 +27,11 @@ export function SettingsPanel(props: {
     DEFAULT_REFRESH_INTERVAL_MINUTES,
   );
   const [workspaceLabelNames, setWorkspaceLabelNames] = useState<string[]>([]);
+  const [assignmentAutomation, setAssignmentAutomation] = useState({
+    enabled: false,
+    provider: "",
+    prompt: "",
+  });
   const [refreshOpen, setRefreshOpen] = useState(false);
 
   const settingsQuery = useQuery({
@@ -39,6 +44,7 @@ export function SettingsPanel(props: {
       setGhPath(settingsQuery.data.ghPath);
       setRefreshIntervalMinutes(settingsQuery.data.refreshIntervalMinutes);
       setWorkspaceLabelNames(settingsQuery.data.workspaceLabelNames);
+      setAssignmentAutomation(settingsQuery.data.assignmentAutomation);
     }
   }, [settingsQuery.data]);
 
@@ -50,6 +56,7 @@ export function SettingsPanel(props: {
       ghPath: string;
       refreshIntervalMinutes: RefreshIntervalMinutes;
       workspaceLabelNames: string[];
+      assignmentAutomation: { enabled: boolean; provider: string; prompt: string };
     }) => await saveSettings(input),
     onSuccess: (result, input) => {
       if (result.kind === "error") {
@@ -59,6 +66,7 @@ export function SettingsPanel(props: {
       setGhPath(result.ghPath);
       setRefreshIntervalMinutes(result.refreshIntervalMinutes);
       setWorkspaceLabelNames(result.workspaceLabelNames);
+      setAssignmentAutomation(result.assignmentAutomation);
       if (input.ghPath.trim() !== (settingsQuery.data?.ghPath ?? "").trim()) {
         toast.show(result.resolvedGhPath ? `Using ${result.resolvedGhPath}` : "Saved GitHub CLI path.", {
           variant: "success",
@@ -79,11 +87,13 @@ export function SettingsPanel(props: {
     ghPath?: string;
     refreshIntervalMinutes?: RefreshIntervalMinutes;
     workspaceLabelNames?: string[];
+    assignmentAutomation?: { enabled: boolean; provider: string; prompt: string };
   }) {
     save.mutate({
       ghPath: next.ghPath ?? ghPath,
       refreshIntervalMinutes: next.refreshIntervalMinutes ?? refreshIntervalMinutes,
       workspaceLabelNames: next.workspaceLabelNames ?? workspaceLabelNames,
+      assignmentAutomation: next.assignmentAutomation ?? assignmentAutomation,
     });
   }
 
@@ -132,6 +142,53 @@ export function SettingsPanel(props: {
             persist({ workspaceLabelNames: names });
           }}
         />
+      </SettingRow>
+      <SettingRow
+        styles={styles}
+        title="Assigned PR automation"
+        description="For PRs assigned after this is enabled, create a workspace, apply the configured labels, and run this prompt with the chosen provider/model. Paseo sends its normal completion notification when the agent finishes."
+      >
+        <View style={styles.control}>
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityLabel="Enable assigned PR automation"
+            accessibilityState={{ checked: assignmentAutomation.enabled }}
+            onPress={() =>
+              setAssignmentAutomation((current) => ({ ...current, enabled: !current.enabled }))
+            }
+            style={styles.action}
+          >
+            <Text style={styles.actionLabel}>{assignmentAutomation.enabled ? "Enabled" : "Disabled"}</Text>
+          </Pressable>
+          <TextInput
+            value={assignmentAutomation.provider}
+            onChangeText={(provider) => setAssignmentAutomation((current) => ({ ...current, provider }))}
+            placeholder="provider/model"
+            placeholderTextColor={props.theme.colors.foregroundMuted}
+            style={styles.input}
+            autoCapitalize="none"
+            autoCorrect={false}
+            accessibilityLabel="Assigned PR automation provider and model"
+          />
+          <TextInput
+            value={assignmentAutomation.prompt}
+            onChangeText={(prompt) => setAssignmentAutomation((current) => ({ ...current, prompt }))}
+            placeholder="Prompt to run for an assigned pull request"
+            placeholderTextColor={props.theme.colors.foregroundMuted}
+            style={styles.input}
+            multiline
+            accessibilityLabel="Assigned PR automation prompt"
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Save assigned PR automation"
+            onPress={() => persist({ assignmentAutomation })}
+            style={styles.action}
+            disabled={save.isPending}
+          >
+            <Text style={styles.actionLabel}>{save.isPending ? "Saving…" : "Save automation"}</Text>
+          </Pressable>
+        </View>
       </SettingRow>
       <SettingRow
         styles={styles}

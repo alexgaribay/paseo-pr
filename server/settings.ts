@@ -19,12 +19,18 @@ interface StoredSettings {
   ghPath: string;
   refreshIntervalMinutes: RefreshIntervalMinutes;
   workspaceLabelNames: string[];
+  assignmentAutomation: {
+    enabled: boolean;
+    provider: string;
+    prompt: string;
+  };
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
   ghPath: "",
   refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
   workspaceLabelNames: [],
+  assignmentAutomation: { enabled: false, provider: "", prompt: "" },
 };
 
 let memory: StoredSettings | null = null;
@@ -50,6 +56,7 @@ export async function handleSettingsSet(input: {
   ghPath: string;
   refreshIntervalMinutes: RefreshIntervalMinutes;
   workspaceLabelNames: string[];
+  assignmentAutomation: StoredSettings["assignmentAutomation"];
 }): Promise<PluginSettingsOutput> {
   const ghPath = input.ghPath.trim();
   if (ghPath.length > 0) {
@@ -64,6 +71,17 @@ export async function handleSettingsSet(input: {
     }
   }
 
+  const provider = input.assignmentAutomation.provider.trim();
+  const prompt = input.assignmentAutomation.prompt.trim();
+  if (input.assignmentAutomation.enabled && (provider.length === 0 || prompt.length === 0)) {
+    const stored = await loadStoredSettings();
+    return await toSettingsOutput({
+      kind: "error",
+      stored,
+      message: "Assigned PR automation needs both a provider/model and prompt.",
+    });
+  }
+
   const catalog = await loadWorkspaceLabelCatalog();
   const workspaceLabelNames = persistableWorkspaceLabelNames(input.workspaceLabelNames, catalog);
 
@@ -71,6 +89,11 @@ export async function handleSettingsSet(input: {
     ghPath,
     refreshIntervalMinutes: input.refreshIntervalMinutes,
     workspaceLabelNames,
+    assignmentAutomation: {
+      enabled: input.assignmentAutomation.enabled,
+      provider,
+      prompt,
+    },
   };
   await writeStoredSettings(next);
   memory = next;
@@ -100,6 +123,7 @@ function parseStoredSettings(value: unknown): StoredSettings {
   const ghPath = "ghPath" in value ? value.ghPath : "";
   const refresh = "refreshIntervalMinutes" in value ? value.refreshIntervalMinutes : DEFAULT_REFRESH_INTERVAL_MINUTES;
   const workspaceLabelNames = "workspaceLabelNames" in value ? value.workspaceLabelNames : [];
+  const assignmentAutomation = "assignmentAutomation" in value ? value.assignmentAutomation : null;
   return {
     ghPath: typeof ghPath === "string" ? ghPath : "",
     refreshIntervalMinutes:
@@ -109,6 +133,18 @@ function parseStoredSettings(value: unknown): StoredSettings {
     workspaceLabelNames: Array.isArray(workspaceLabelNames)
       ? uniqueWorkspaceLabelNames(workspaceLabelNames.filter((name): name is string => typeof name === "string"))
       : [],
+    assignmentAutomation:
+      assignmentAutomation && typeof assignmentAutomation === "object"
+        ? {
+            enabled: "enabled" in assignmentAutomation && assignmentAutomation.enabled === true,
+            provider: "provider" in assignmentAutomation && typeof assignmentAutomation.provider === "string"
+              ? assignmentAutomation.provider
+              : "",
+            prompt: "prompt" in assignmentAutomation && typeof assignmentAutomation.prompt === "string"
+              ? assignmentAutomation.prompt
+              : "",
+          }
+        : { enabled: false, provider: "", prompt: "" },
   };
 }
 
@@ -129,6 +165,7 @@ async function toSettingsOutput(input: {
       refreshIntervalMinutes: input.stored.refreshIntervalMinutes,
       workspaceLabelNames,
       workspaceLabels,
+      assignmentAutomation: input.stored.assignmentAutomation,
     };
   }
   return {
@@ -138,6 +175,7 @@ async function toSettingsOutput(input: {
     refreshIntervalMinutes: input.stored.refreshIntervalMinutes,
     workspaceLabelNames,
     workspaceLabels,
+    assignmentAutomation: input.stored.assignmentAutomation,
   };
 }
 

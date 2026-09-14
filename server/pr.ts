@@ -56,9 +56,14 @@ export async function handlePrList(
   );
 
   const pullRequests: PullRequest[] = [];
-  for (const result of results) {
-    if (result.kind !== "ok") return result;
-    pullRequests.push(...result.pullRequests.filter((pullRequest) => matchesStates(pullRequest, input.states)));
+  for (const [index, result] of results.entries()) {
+    if (result.kind === "ok") {
+      pullRequests.push(...result.pullRequests.filter((pullRequest) => matchesStates(pullRequest, input.states)));
+      continue;
+    }
+    if (result.kind === "unavailable") return result;
+    const project = selected[index];
+    console.error(`[paseo-pr] skipped ${project.github.owner}/${project.github.repo}: ${result.message}`);
   }
 
   pullRequests.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -104,8 +109,13 @@ export async function handlePrAttention(
 
   const seen = new Set<string>();
   const pullRequests: PullRequest[] = [];
-  for (const result of results) {
-    if (result.kind !== "ok") return result;
+  for (const [index, result] of results.entries()) {
+    if (result.kind === "unavailable") return result;
+    if (result.kind !== "ok") {
+      const project = projects[index];
+      console.error(`[paseo-pr] skipped ${project.github.owner}/${project.github.repo}: ${result.message}`);
+      continue;
+    }
     for (const pullRequest of result.pullRequests) {
       const key = `${pullRequest.owner}/${pullRequest.repo}#${pullRequest.number}`;
       if (seen.has(key)) continue;
