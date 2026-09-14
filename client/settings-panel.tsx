@@ -1,5 +1,5 @@
 import { usePaseo, useRpc } from "@getpaseo/plugin/client";
-import { SettingsAction, SettingsInput, SettingsSection, SettingsSelect, SettingsSwitch } from "@getpaseo/plugin/client/ui";
+import { SettingsAction, SettingsRow, SettingsSection, SettingsSelect, SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -175,14 +175,21 @@ export function SettingsPanel(props: {
           onValueChange={(provider) => setAssignmentAutomation((current) => ({ ...current, provider }))}
           disabled={providersQuery.isLoading || modelOptions.length === 0}
         />
-        <SettingsInput
-          key={settingsQuery.data?.assignmentAutomation.prompt ?? ""}
+        <SettingsRow
           label="Default prompt"
           hint="Sent to the agent after its workspace and labels are ready."
-          initialValue={assignmentAutomation.prompt}
-          onChangeText={(prompt) => setAssignmentAutomation((current) => ({ ...current, prompt }))}
-          placeholder="Review this pull request and summarize the changes."
-        />
+        >
+          <TextInput
+            value={assignmentAutomation.prompt}
+            onChangeText={(prompt) => setAssignmentAutomation((current) => ({ ...current, prompt }))}
+            placeholder="Review this pull request and summarize the changes."
+            placeholderTextColor={props.theme.colors.foregroundMuted}
+            style={styles.promptInput}
+            multiline
+            textAlignVertical="top"
+            accessibilityLabel="Assigned PR automation default prompt"
+          />
+        </SettingsRow>
         <SettingsAction
           label="Save automation"
           actionLabel={save.isPending ? "Saving…" : "Save"}
@@ -411,6 +418,18 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       paddingHorizontal: 12,
       paddingVertical: 8,
       fontSize: 14,
+    },
+    promptInput: {
+      minHeight: 128,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface2,
+      color: theme.colors.foreground,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      lineHeight: 20,
     },
     action: {
       backgroundColor: theme.colors.accent,
