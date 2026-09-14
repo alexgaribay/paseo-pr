@@ -195,8 +195,8 @@ function SearchablePicker(props: {
       <Icon name={props.open ? "ChevronUp" : "ChevronDown"} size={14} color={props.theme.colors.foregroundMuted} />
     </Pressable>
     {props.open ? <View style={props.styles.pickerMenu} accessibilityRole="menu">
-      <TextInput value={props.query} onChangeText={props.onQueryChange} onBlur={() => setTimeout(() => props.onOpenChange(false), 0)} autoFocus placeholder={props.searchPlaceholder} placeholderTextColor={props.theme.colors.foregroundMuted} style={props.styles.pickerSearch} />
-      <ScrollView style={props.styles.pickerOptions} nestedScrollEnabled>{options.map((option) => <Pressable key={option.value} accessibilityRole="menuitem" onPressIn={() => props.onChange(option.value)} style={props.styles.selectItem}>
+      <TextInput value={props.query} onChangeText={props.onQueryChange} onBlur={() => setTimeout(() => props.onOpenChange(false), 200)} autoFocus placeholder={props.searchPlaceholder} placeholderTextColor={props.theme.colors.foregroundMuted} style={props.styles.pickerSearch} />
+      <ScrollView style={props.styles.pickerOptions} nestedScrollEnabled>{options.map((option) => <Pressable key={option.value} accessibilityRole="menuitem" onPress={() => props.onChange(option.value)} style={props.styles.selectItem}>
         <View style={stylesForOption(props.styles)}><Text style={option.value === props.value ? props.styles.selectItemLabelSelected : props.styles.selectItemLabel}>{option.label}</Text>{option.description ? <Text style={props.styles.muted} numberOfLines={1}>{option.description}</Text> : null}</View>
       </Pressable>)}</ScrollView>
     </View> : null}
