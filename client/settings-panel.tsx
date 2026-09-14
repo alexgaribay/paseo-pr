@@ -1,4 +1,5 @@
 import { usePaseo, useRpc } from "@getpaseo/plugin/client";
+import { SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -153,11 +154,12 @@ export function SettingsPanel(props: {
         <Text style={styles.heading}>Assigned PR automation</Text>
         <Text style={styles.muted}>For new assignments, create a labeled workspace and run the selected profile. Paseo notifies you when the agent completes.</Text>
       </View>
-      <SettingRow styles={styles} title="Automatically run" description="Only assignments observed after this setting is enabled are automated.">
-        <Pressable accessibilityRole="switch" accessibilityState={{ checked: assignmentAutomation.enabled }} onPress={() => updateAutomation({ ...assignmentAutomation, enabled: !assignmentAutomation.enabled })} style={styles.toggle}>
-          <Text style={styles.toggleLabel}>{assignmentAutomation.enabled ? "Enabled" : "Disabled"}</Text>
-        </Pressable>
-      </SettingRow>
+      <SettingsSwitch
+        label="Automatically run"
+        hint="Only assignments observed after this setting is enabled are automated."
+        value={assignmentAutomation.enabled}
+        onValueChange={(enabled) => updateAutomation({ ...assignmentAutomation, enabled })}
+      />
       <SettingRow styles={styles} title="Agent profile" description={profilesQuery.isLoading ? "Loading your Paseo profiles…" : selectedProfile ? "The profile supplies the provider, model, thinking level, and access mode." : "Choose an existing profile that includes a model."} overlay>
         <SearchablePicker theme={props.theme} styles={styles} value={assignmentAutomation.profileId} options={profileOptions} open={profileOpen} query={profileSearch} disabled={profilesQuery.isLoading || profileOptions.length === 0} emptyLabel="Select a profile" searchPlaceholder="Search profiles" onOpenChange={setProfileOpen} onQueryChange={setProfileSearch} onChange={(profileId) => {
           updateAutomation({ ...assignmentAutomation, profileId });
@@ -194,7 +196,7 @@ function SearchablePicker(props: {
     </Pressable>
     {props.open ? <View style={props.styles.pickerMenu} accessibilityRole="menu">
       <TextInput value={props.query} onChangeText={props.onQueryChange} onBlur={() => setTimeout(() => props.onOpenChange(false), 0)} autoFocus placeholder={props.searchPlaceholder} placeholderTextColor={props.theme.colors.foregroundMuted} style={props.styles.pickerSearch} />
-      <ScrollView style={props.styles.pickerOptions} nestedScrollEnabled>{options.map((option) => <Pressable key={option.value} accessibilityRole="menuitem" onPress={() => props.onChange(option.value)} style={props.styles.selectItem}>
+      <ScrollView style={props.styles.pickerOptions} nestedScrollEnabled>{options.map((option) => <Pressable key={option.value} accessibilityRole="menuitem" onPressIn={() => props.onChange(option.value)} style={props.styles.selectItem}>
         <View style={stylesForOption(props.styles)}><Text style={option.value === props.value ? props.styles.selectItemLabelSelected : props.styles.selectItemLabel}>{option.label}</Text>{option.description ? <Text style={props.styles.muted} numberOfLines={1}>{option.description}</Text> : null}</View>
       </Pressable>)}</ScrollView>
     </View> : null}
@@ -225,7 +227,6 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
     heading: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const }, muted: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
     input: { alignSelf: "stretch" as const, width: "100%" as const, minHeight: 36, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface2, color: theme.colors.foreground, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 },
     promptInput: { alignSelf: "stretch" as const, width: "100%" as const, minHeight: 128, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface2, color: theme.colors.foreground, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, lineHeight: 20 },
-    toggle: { alignSelf: "flex-end" as const, minWidth: 92, minHeight: 36, justifyContent: "center" as const, alignItems: "center" as const, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface2, borderRadius: 8, paddingHorizontal: 12 }, toggleLabel: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const },
     picker: { alignSelf: "stretch" as const, width: "100%" as const, position: "relative" as const, zIndex: 30 },
     pickerTrigger: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: 8, minHeight: 36, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface2, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }, selectValue: { color: theme.colors.foreground, fontSize: 14, flexShrink: 1 },
     pickerMenu: { position: "absolute" as const, top: 40, left: 0, right: 0, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface1, borderRadius: 8, overflow: "hidden" as const, shadowColor: "#000", shadowOpacity: 0.24, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 8, zIndex: 40 }, pickerSearch: { minHeight: 36, borderBottomWidth: 1, borderBottomColor: theme.colors.border, color: theme.colors.foreground, paddingHorizontal: 12, fontSize: 14 }, pickerOptions: { maxHeight: 240 },
