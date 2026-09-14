@@ -510,11 +510,17 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       paddingHorizontal: 12,
     },
     modelMenu: {
+      marginTop: 4,
       borderWidth: 1,
       borderColor: theme.colors.border,
       backgroundColor: theme.colors.surface1,
       borderRadius: 8,
       overflow: "hidden" as const,
+      shadowColor: "#000",
+      shadowOpacity: 0.24,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 8,
     },
     modelSearch: {
       minHeight: 36,
