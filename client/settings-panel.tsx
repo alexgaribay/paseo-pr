@@ -1,10 +1,10 @@
 import { usePaseo, useRpc } from "@getpaseo/plugin/client";
-import { SettingsAction, SettingsRow, SettingsSection, SettingsSelect, SettingsSwitch } from "@getpaseo/plugin/client/ui";
+import { SettingsAction, SettingsSection, SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import {
   DEFAULT_REFRESH_INTERVAL_MINUTES,
   REFRESH_INTERVAL_MINUTES,
@@ -34,6 +34,8 @@ export function SettingsPanel(props: {
     provider: "",
     prompt: "",
   });
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [modelSearch, setModelSearch] = useState("");
   const [refreshOpen, setRefreshOpen] = useState(false);
 
   const settingsQuery = useQuery({
@@ -167,18 +169,34 @@ export function SettingsPanel(props: {
           value={assignmentAutomation.enabled}
           onValueChange={(enabled) => setAssignmentAutomation((current) => ({ ...current, enabled }))}
         />
-        <SettingsSelect
-          label="Model"
-          hint={providersQuery.isLoading ? "Loading available models…" : "Use the same provider/model catalog as Paseo."}
-          value={assignmentAutomation.provider}
-          options={modelOptions}
-          onValueChange={(provider) => setAssignmentAutomation((current) => ({ ...current, provider }))}
-          disabled={providersQuery.isLoading || modelOptions.length === 0}
-        />
-        <SettingsRow
-          label="Default prompt"
-          hint="Sent to the agent after its workspace and labels are ready."
-        >
+        <View style={styles.automationPrompt}>
+          <View style={styles.automationPromptCopy}>
+            <Text style={styles.heading}>Model</Text>
+            <Text style={styles.muted}>
+              {providersQuery.isLoading ? "Loading available models…" : "Use the same provider/model catalog as Paseo."}
+            </Text>
+          </View>
+          <ModelPicker
+            theme={props.theme}
+            styles={styles}
+            value={assignmentAutomation.provider}
+            options={modelOptions}
+            open={modelPickerOpen}
+            query={modelSearch}
+            disabled={providersQuery.isLoading || modelOptions.length === 0}
+            onOpenChange={setModelPickerOpen}
+            onQueryChange={setModelSearch}
+            onChange={(provider) => {
+              setAssignmentAutomation((current) => ({ ...current, provider }));
+              setModelPickerOpen(false);
+            }}
+          />
+        </View>
+        <View style={styles.automationPrompt}>
+          <View style={styles.automationPromptCopy}>
+            <Text style={styles.heading}>Default prompt</Text>
+            <Text style={styles.muted}>Sent to the agent after its workspace and labels are ready.</Text>
+          </View>
           <TextInput
             value={assignmentAutomation.prompt}
             onChangeText={(prompt) => setAssignmentAutomation((current) => ({ ...current, prompt }))}
@@ -189,7 +207,7 @@ export function SettingsPanel(props: {
             textAlignVertical="top"
             accessibilityLabel="Assigned PR automation default prompt"
           />
-        </SettingsRow>
+        </View>
         <SettingsAction
           label="Save automation"
           actionLabel={save.isPending ? "Saving…" : "Save"}
@@ -227,6 +245,68 @@ export function SettingsPanel(props: {
         {saveError ? <Text style={styles.danger}>{saveError}</Text> : null}
         <Text style={styles.muted}>{ghStatus}</Text>
       </SettingRow>
+    </View>
+  );
+}
+
+function ModelPicker(props: {
+  theme: PluginTheme;
+  styles: ReturnType<typeof panelStyles>;
+  value: string;
+  options: readonly { label: string; value: string }[];
+  open: boolean;
+  query: string;
+  disabled: boolean;
+  onOpenChange(open: boolean): void;
+  onQueryChange(query: string): void;
+  onChange(value: string): void;
+}) {
+  const query = props.query.trim().toLowerCase();
+  const options = query.length === 0 ? props.options : props.options.filter((option) => option.label.toLowerCase().includes(query));
+  const selected = props.options.find((option) => option.value === props.value);
+  return (
+    <View style={props.styles.modelPicker}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Select automation model"
+        accessibilityState={{ expanded: props.open, disabled: props.disabled }}
+        disabled={props.disabled}
+        onPress={() => props.onOpenChange(!props.open)}
+        style={props.styles.modelTrigger}
+      >
+        <Text style={props.styles.selectValue} numberOfLines={1}>
+          {selected?.label ?? "Select a model"}
+        </Text>
+        <Icon name={props.open ? "ChevronUp" : "ChevronDown"} size={14} color={props.theme.colors.foregroundMuted} />
+      </Pressable>
+      {props.open ? (
+        <View style={props.styles.modelMenu}>
+          <TextInput
+            value={props.query}
+            onChangeText={props.onQueryChange}
+            placeholder="Search models"
+            placeholderTextColor={props.theme.colors.foregroundMuted}
+            style={props.styles.modelSearch}
+            autoFocus
+            accessibilityLabel="Search automation models"
+          />
+          <ScrollView style={props.styles.modelOptions} nestedScrollEnabled>
+            {options.map((option) => (
+              <Pressable
+                key={option.value}
+                accessibilityRole="menuitem"
+                accessibilityState={{ selected: option.value === props.value }}
+                onPress={() => props.onChange(option.value)}
+                style={props.styles.selectItem}
+              >
+                <Text style={option.value === props.value ? props.styles.selectItemLabelSelected : props.styles.selectItemLabel}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -419,7 +499,39 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       paddingVertical: 8,
       fontSize: 14,
     },
+    modelPicker: { alignSelf: "stretch" as const, width: "100%" as const, gap: 8 },
+    modelTrigger: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "space-between" as const,
+      minHeight: 36,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface2,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+    },
+    modelMenu: {
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface1,
+      borderRadius: 8,
+      overflow: "hidden" as const,
+    },
+    modelSearch: {
+      minHeight: 36,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+      color: theme.colors.foreground,
+      paddingHorizontal: 12,
+      fontSize: 14,
+    },
+    modelOptions: { maxHeight: 240 },
+    automationPrompt: { alignSelf: "stretch" as const, width: "100%" as const, gap: 8 },
+    automationPromptCopy: { gap: 4 },
     promptInput: {
+      flexGrow: 1,
+      flexBasis: 0,
       alignSelf: "stretch" as const,
       width: "100%" as const,
       minHeight: 128,
