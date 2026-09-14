@@ -1,6 +1,7 @@
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
 import { getGhStatus, listRepoPullRequests, viewRepoPullRequest } from "./gh";
 import { findGithubProject, listResolvedGithubProjects } from "./projects";
+import { loadStoredExcludedProjectIds } from "./settings";
 import type {
   AttentionOutput,
   ListPullRequestsInput,
@@ -33,7 +34,11 @@ export async function handlePrList(
   context: PluginHandlerContext,
 ): Promise<ListPullRequestsOutput> {
   const projects = await listResolvedGithubProjects(context);
-  const selected = selectProjects(projects, input.projectIds);
+  const excludedProjectIds = new Set(await loadStoredExcludedProjectIds());
+  const selected = selectProjects(
+    projects.filter((project) => !excludedProjectIds.has(project.projectId)),
+    input.projectIds,
+  );
 
   if (input.projectIds && input.projectIds.length > 0 && selected.length === 0) {
     return { kind: "error", message: "That project is not a GitHub remote." };
@@ -92,7 +97,10 @@ export async function handlePrAttention(
   const status = await getGhStatus();
   if (status.kind !== "ok") return status;
 
-  const projects = await listResolvedGithubProjects(context);
+  const excludedProjectIds = new Set(await loadStoredExcludedProjectIds());
+  const projects = (await listResolvedGithubProjects(context)).filter(
+    (project) => !excludedProjectIds.has(project.projectId),
+  );
   const results = await Promise.all(
     projects.map((project) =>
       listRepoPullRequests({

@@ -30,6 +30,7 @@ export const pluginSettingsSchema = z.object({
   ghPath: z.string(),
   resolvedGhPath: z.string().nullable(),
   refreshIntervalMinutes: refreshIntervalMinutesSchema,
+  excludedProjectIds: z.array(z.string()),
   workspaceLabelNames: workspaceLabelNamesSchema,
   workspaceLabels: z.array(workspaceLabelDefinitionSchema),
   assignmentAutomation: assignmentAutomationSchema,
@@ -54,6 +55,7 @@ export const prSettingsSet = defineRpc({
   input: z.object({
     ghPath: z.string(),
     refreshIntervalMinutes: refreshIntervalMinutesSchema,
+    excludedProjectIds: z.array(z.string()),
     workspaceLabelNames: workspaceLabelNamesSchema,
     assignmentAutomation: assignmentAutomationSchema,
   }),

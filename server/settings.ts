@@ -19,6 +19,7 @@ import {
 interface StoredSettings {
   ghPath: string;
   refreshIntervalMinutes: RefreshIntervalMinutes;
+  excludedProjectIds: string[];
   workspaceLabelNames: string[];
   assignmentAutomation: {
     enabled: boolean;
@@ -30,6 +31,7 @@ interface StoredSettings {
 const DEFAULT_SETTINGS: StoredSettings = {
   ghPath: "",
   refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
+  excludedProjectIds: [],
   workspaceLabelNames: [],
   assignmentAutomation: { enabled: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
 };
@@ -44,6 +46,10 @@ export async function loadStoredRefreshIntervalMinutes(): Promise<RefreshInterva
   return (await loadStoredSettings()).refreshIntervalMinutes;
 }
 
+export async function loadStoredExcludedProjectIds(): Promise<string[]> {
+  return (await loadStoredSettings()).excludedProjectIds;
+}
+
 export async function loadStoredWorkspaceLabelNames(): Promise<string[]> {
   return (await loadStoredSettings()).workspaceLabelNames;
 }
@@ -56,6 +62,7 @@ export async function handleSettingsGet(): Promise<PluginSettingsOutput> {
 export async function handleSettingsSet(input: {
   ghPath: string;
   refreshIntervalMinutes: RefreshIntervalMinutes;
+  excludedProjectIds: string[];
   workspaceLabelNames: string[];
   assignmentAutomation: StoredSettings["assignmentAutomation"];
 }): Promise<PluginSettingsOutput> {
@@ -85,10 +92,12 @@ export async function handleSettingsSet(input: {
 
   const catalog = await loadWorkspaceLabelCatalog();
   const workspaceLabelNames = persistableWorkspaceLabelNames(input.workspaceLabelNames, catalog);
+  const excludedProjectIds = uniqueProjectIds(input.excludedProjectIds);
 
   const next: StoredSettings = {
     ghPath,
     refreshIntervalMinutes: input.refreshIntervalMinutes,
+    excludedProjectIds,
     workspaceLabelNames,
     assignmentAutomation: {
       enabled: input.assignmentAutomation.enabled,
@@ -123,6 +132,7 @@ function parseStoredSettings(value: unknown): StoredSettings {
   if (!value || typeof value !== "object") return { ...DEFAULT_SETTINGS };
   const ghPath = "ghPath" in value ? value.ghPath : "";
   const refresh = "refreshIntervalMinutes" in value ? value.refreshIntervalMinutes : DEFAULT_REFRESH_INTERVAL_MINUTES;
+  const excludedProjectIds = "excludedProjectIds" in value ? value.excludedProjectIds : [];
   const workspaceLabelNames = "workspaceLabelNames" in value ? value.workspaceLabelNames : [];
   const assignmentAutomation = "assignmentAutomation" in value ? value.assignmentAutomation : null;
   return {
@@ -131,6 +141,9 @@ function parseStoredSettings(value: unknown): StoredSettings {
       typeof refresh === "number" && isRefreshIntervalMinutes(refresh)
         ? refresh
         : DEFAULT_REFRESH_INTERVAL_MINUTES,
+    excludedProjectIds: Array.isArray(excludedProjectIds)
+      ? uniqueProjectIds(excludedProjectIds)
+      : [],
     workspaceLabelNames: Array.isArray(workspaceLabelNames)
       ? uniqueWorkspaceLabelNames(workspaceLabelNames.filter((name): name is string => typeof name === "string"))
       : [],
@@ -167,6 +180,7 @@ async function toSettingsOutput(input: {
       ghPath: input.stored.ghPath,
       resolvedGhPath,
       refreshIntervalMinutes: input.stored.refreshIntervalMinutes,
+      excludedProjectIds: input.stored.excludedProjectIds,
       workspaceLabelNames,
       workspaceLabels,
       assignmentAutomation: input.stored.assignmentAutomation,
@@ -177,6 +191,7 @@ async function toSettingsOutput(input: {
     ghPath: input.stored.ghPath,
     resolvedGhPath,
     refreshIntervalMinutes: input.stored.refreshIntervalMinutes,
+    excludedProjectIds: input.stored.excludedProjectIds,
     workspaceLabelNames,
     workspaceLabels,
     assignmentAutomation: input.stored.assignmentAutomation,
@@ -188,6 +203,10 @@ function persistableWorkspaceLabelNames(
   catalog: readonly WorkspaceLabelDefinition[],
 ): string[] {
   return resolveExistingWorkspaceLabels(names, catalog).map((label) => label.name);
+}
+
+function uniqueProjectIds(projectIds: readonly unknown[]): string[] {
+  return [...new Set(projectIds.filter((projectId): projectId is string => typeof projectId === "string" && projectId.length > 0))];
 }
 
 function settingsFilePath(): string {

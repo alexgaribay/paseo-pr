@@ -13,6 +13,7 @@ import {
   refreshIntervalLabel,
   type RefreshIntervalMinutes,
 } from "../shared/settings";
+import { prProjects, type GithubProject } from "../shared/pr";
 import { WorkspaceLabelPicker } from "./workspace-label-picker";
 
 interface AssignmentAutomation {
@@ -36,11 +37,13 @@ export function SettingsPanel(props: {
   const paseo = usePaseo();
   const fetchSettings = useRpc(prSettingsGet);
   const saveSettings = useRpc(prSettingsSet);
+  const fetchProjects = useRpc(prProjects);
   const [ghPath, setGhPath] = useState("");
   const [refreshIntervalMinutes, setRefreshIntervalMinutes] = useState<RefreshIntervalMinutes>(
     DEFAULT_REFRESH_INTERVAL_MINUTES,
   );
   const [workspaceLabelNames, setWorkspaceLabelNames] = useState<string[]>([]);
+  const [excludedProjectIds, setExcludedProjectIds] = useState<string[]>([]);
   const [assignmentAutomation, setAssignmentAutomation] = useState<AssignmentAutomation>({
     enabled: false,
     profileId: "",
@@ -49,6 +52,8 @@ export function SettingsPanel(props: {
   const [refreshOpen, setRefreshOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileSearch, setProfileSearch] = useState("");
+  const [excludedProjectsOpen, setExcludedProjectsOpen] = useState(false);
+  const [excludedProjectsSearch, setExcludedProjectsSearch] = useState("");
 
   const settingsQuery = useQuery({
     queryKey: ["pr.settings"],
@@ -59,12 +64,18 @@ export function SettingsPanel(props: {
     queryFn: async () => (await paseo.config.get()).config.agentProfiles ?? [],
     staleTime: 60_000,
   });
+  const projectsQuery = useQuery({
+    queryKey: ["pr.projects"],
+    queryFn: async () => (await fetchProjects({})).projects,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     const settings = settingsQuery.data;
     if (settings?.kind !== "ok" && settings?.kind !== "error") return;
     setGhPath(settings.ghPath);
     setRefreshIntervalMinutes(settings.refreshIntervalMinutes);
+    setExcludedProjectIds(settings.excludedProjectIds);
     setWorkspaceLabelNames(settings.workspaceLabelNames);
     setAssignmentAutomation(settings.assignmentAutomation);
   }, [settingsQuery.data]);
@@ -74,6 +85,7 @@ export function SettingsPanel(props: {
     mutationFn: (input: {
       ghPath: string;
       refreshIntervalMinutes: RefreshIntervalMinutes;
+      excludedProjectIds: string[];
       workspaceLabelNames: string[];
       assignmentAutomation: AssignmentAutomation;
     }) => saveSettings(input),
@@ -84,6 +96,7 @@ export function SettingsPanel(props: {
       }
       setGhPath(result.ghPath);
       setRefreshIntervalMinutes(result.refreshIntervalMinutes);
+      setExcludedProjectIds(result.excludedProjectIds);
       setWorkspaceLabelNames(result.workspaceLabelNames);
       setAssignmentAutomation(result.assignmentAutomation);
       if (input.ghPath.trim() !== (settingsQuery.data?.ghPath ?? "").trim()) {
@@ -100,12 +113,14 @@ export function SettingsPanel(props: {
   function persist(next: Partial<{
     ghPath: string;
     refreshIntervalMinutes: RefreshIntervalMinutes;
+    excludedProjectIds: string[];
     workspaceLabelNames: string[];
     assignmentAutomation: AssignmentAutomation;
   }>) {
     save.mutate({
       ghPath: next.ghPath ?? ghPath,
       refreshIntervalMinutes: next.refreshIntervalMinutes ?? refreshIntervalMinutes,
+      excludedProjectIds: next.excludedProjectIds ?? excludedProjectIds,
       workspaceLabelNames: next.workspaceLabelNames ?? workspaceLabelNames,
       assignmentAutomation: next.assignmentAutomation ?? assignmentAutomation,
     });
@@ -143,6 +158,23 @@ export function SettingsPanel(props: {
           setRefreshIntervalMinutes(minutes);
           persist({ refreshIntervalMinutes: minutes });
         }} />
+      </SettingRow>
+      <SettingRow styles={styles} title="Excluded projects" description="Excluded projects are hidden from pull-request lists, the waiting count, and assigned-PR automation." overlay>
+        <ProjectExclusionPicker
+          theme={props.theme}
+          styles={styles}
+          projects={projectsQuery.data ?? []}
+          selectedProjectIds={excludedProjectIds}
+          open={excludedProjectsOpen}
+          query={excludedProjectsSearch}
+          disabled={projectsQuery.isLoading}
+          onOpenChange={setExcludedProjectsOpen}
+          onQueryChange={setExcludedProjectsSearch}
+          onChange={(projectIds) => {
+            setExcludedProjectIds(projectIds);
+            persist({ excludedProjectIds: projectIds });
+          }}
+        />
       </SettingRow>
       <SettingRow styles={styles} title="Workspace labels" description="Apply these labels when this plugin creates a workspace." overlay>
         <WorkspaceLabelPicker theme={props.theme} compact={props.compact} catalog={settingsQuery.data?.workspaceLabels ?? []} selectedNames={workspaceLabelNames} onChange={(names) => {
@@ -203,6 +235,53 @@ function SearchablePicker(props: {
   </View>;
 }
 
+function ProjectExclusionPicker(props: {
+  theme: PluginTheme;
+  styles: ReturnType<typeof panelStyles>;
+  projects: readonly GithubProject[];
+  selectedProjectIds: readonly string[];
+  open: boolean;
+  query: string;
+  disabled: boolean;
+  onOpenChange: (open: boolean) => void;
+  onQueryChange: (query: string) => void;
+  onChange: (projectIds: string[]) => void;
+}) {
+  const selectedIds = new Set(props.selectedProjectIds);
+  const projects = props.projects.filter((project) => {
+    const needle = props.query.trim().toLowerCase();
+    return needle.length === 0 || `${project.owner}/${project.repo} ${project.displayName}`.toLowerCase().includes(needle);
+  });
+  const selectedCount = props.selectedProjectIds.length;
+
+  function toggle(projectId: string) {
+    props.onChange(
+      selectedIds.has(projectId)
+        ? props.selectedProjectIds.filter((candidate) => candidate !== projectId)
+        : [...props.selectedProjectIds, projectId],
+    );
+  }
+
+  return <View style={props.styles.picker}>
+    <Pressable disabled={props.disabled} accessibilityRole="button" accessibilityState={{ expanded: props.open, disabled: props.disabled }} onPress={() => props.onOpenChange(!props.open)} style={props.styles.pickerTrigger}>
+      <Text style={props.styles.selectValue} numberOfLines={1}>{selectedCount === 0 ? "No excluded projects" : `${selectedCount} project${selectedCount === 1 ? "" : "s"} excluded`}</Text>
+      <Icon name={props.open ? "ChevronUp" : "ChevronDown"} size={14} color={props.theme.colors.foregroundMuted} />
+    </Pressable>
+    {props.open ? <View style={props.styles.pickerMenu} accessibilityRole="menu">
+      <TextInput value={props.query} onChangeText={props.onQueryChange} onBlur={() => setTimeout(() => props.onOpenChange(false), 200)} autoFocus placeholder="Search projects" placeholderTextColor={props.theme.colors.foregroundMuted} style={props.styles.pickerSearch} />
+      <ScrollView keyboardShouldPersistTaps="handled" style={props.styles.pickerOptions} nestedScrollEnabled>
+        {projects.length === 0 ? <Text style={props.styles.pickerEmpty}>No matching projects.</Text> : projects.map((project) => {
+          const selected = selectedIds.has(project.projectId);
+          return <Pressable key={project.projectId} accessibilityRole="menuitem" accessibilityState={{ selected }} onPressIn={() => toggle(project.projectId)} style={props.styles.selectItem}>
+            <Text style={selected ? props.styles.selectItemLabelSelected : props.styles.selectItemLabel} numberOfLines={1}>{project.owner}/{project.repo}</Text>
+            {selected ? <Icon name="Check" size={12} color={props.theme.colors.foreground} /> : null}
+          </Pressable>;
+        })}
+      </ScrollView>
+    </View> : null}
+  </View>;
+}
+
 function stylesForOption(styles: ReturnType<typeof panelStyles>) { return { flex: 1, gap: 2, minWidth: 0 }; }
 
 function RefreshIntervalSelect(props: { theme: PluginTheme; styles: ReturnType<typeof panelStyles>; value: RefreshIntervalMinutes; open: boolean; onOpenChange: (open: boolean) => void; onChange: (minutes: RefreshIntervalMinutes) => void }) {
@@ -230,6 +309,7 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
     picker: { alignSelf: "stretch" as const, width: "100%" as const, position: "relative" as const, zIndex: 30 },
     pickerTrigger: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: 8, minHeight: 36, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface2, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }, selectValue: { color: theme.colors.foreground, fontSize: 14, flexShrink: 1 },
     pickerMenu: { position: "absolute" as const, top: 40, left: 0, right: 0, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface1, borderRadius: 8, overflow: "hidden" as const, shadowColor: "#000", shadowOpacity: 0.24, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 8, zIndex: 40 }, pickerSearch: { minHeight: 36, borderBottomWidth: 1, borderBottomColor: theme.colors.border, color: theme.colors.foreground, paddingHorizontal: 12, fontSize: 14 }, pickerOptions: { maxHeight: 240 },
+    pickerEmpty: { color: theme.colors.foregroundMuted, fontSize: 14, paddingHorizontal: 12, paddingVertical: 10 },
     selectItem: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: 8, minHeight: 36, paddingHorizontal: 12, paddingVertical: compact ? 8 : 9 }, selectItemLabel: { color: theme.colors.foreground, fontSize: 14 }, selectItemLabelSelected: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const },
   };
 }
