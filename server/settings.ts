@@ -22,10 +22,8 @@ interface StoredSettings {
   workspaceLabelNames: string[];
   assignmentAutomation: {
     enabled: boolean;
-    provider: string;
+    profileId: string;
     prompt: string;
-    thinkingOptionId: string | null;
-    modeId: string | null;
   };
 }
 
@@ -33,7 +31,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   ghPath: "",
   refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
   workspaceLabelNames: [],
-  assignmentAutomation: { enabled: false, provider: "", prompt: DEFAULT_ASSIGNMENT_PROMPT, thinkingOptionId: null, modeId: null },
+  assignmentAutomation: { enabled: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
 };
 
 let memory: StoredSettings | null = null;
@@ -74,14 +72,14 @@ export async function handleSettingsSet(input: {
     }
   }
 
-  const provider = input.assignmentAutomation.provider.trim();
+  const profileId = input.assignmentAutomation.profileId.trim();
   const prompt = input.assignmentAutomation.prompt.trim();
-  if (input.assignmentAutomation.enabled && (provider.length === 0 || prompt.length === 0)) {
+  if (input.assignmentAutomation.enabled && (profileId.length === 0 || prompt.length === 0)) {
     const stored = await loadStoredSettings();
     return await toSettingsOutput({
       kind: "error",
       stored,
-      message: "Assigned PR automation needs both a provider/model and prompt.",
+      message: "Assigned PR automation needs both a profile and prompt.",
     });
   }
 
@@ -94,10 +92,8 @@ export async function handleSettingsSet(input: {
     workspaceLabelNames,
     assignmentAutomation: {
       enabled: input.assignmentAutomation.enabled,
-      provider,
+      profileId,
       prompt,
-      thinkingOptionId: input.assignmentAutomation.thinkingOptionId?.trim() || null,
-      modeId: input.assignmentAutomation.modeId?.trim() || null,
     },
   };
   await writeStoredSettings(next);
@@ -142,8 +138,8 @@ function parseStoredSettings(value: unknown): StoredSettings {
       assignmentAutomation && typeof assignmentAutomation === "object"
         ? {
             enabled: "enabled" in assignmentAutomation && assignmentAutomation.enabled === true,
-            provider: "provider" in assignmentAutomation && typeof assignmentAutomation.provider === "string"
-              ? assignmentAutomation.provider
+            profileId: "profileId" in assignmentAutomation && typeof assignmentAutomation.profileId === "string"
+              ? assignmentAutomation.profileId
               : "",
             prompt:
               "prompt" in assignmentAutomation &&
@@ -151,15 +147,8 @@ function parseStoredSettings(value: unknown): StoredSettings {
               assignmentAutomation.prompt.trim().length > 0
                 ? assignmentAutomation.prompt
                 : DEFAULT_ASSIGNMENT_PROMPT,
-            thinkingOptionId:
-              "thinkingOptionId" in assignmentAutomation && typeof assignmentAutomation.thinkingOptionId === "string"
-                ? assignmentAutomation.thinkingOptionId
-                : null,
-            modeId: "modeId" in assignmentAutomation && typeof assignmentAutomation.modeId === "string"
-              ? assignmentAutomation.modeId
-              : null,
           }
-        : { enabled: false, provider: "", prompt: DEFAULT_ASSIGNMENT_PROMPT, thinkingOptionId: null, modeId: null },
+        : { enabled: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
   };
 }
 

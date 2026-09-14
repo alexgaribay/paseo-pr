@@ -34,10 +34,8 @@ export function startAssignmentAutomation(client: PluginClientContext): () => vo
                   client,
                   pullRequest,
                   rootPath: project.rootPath,
-                  provider: settings.assignmentAutomation.provider,
+                  profileId: settings.assignmentAutomation.profileId,
                   prompt: settings.assignmentAutomation.prompt,
-                  thinkingOptionId: settings.assignmentAutomation.thinkingOptionId,
-                  modeId: settings.assignmentAutomation.modeId,
                 });
                 seen.add(key);
               } catch {
@@ -65,12 +63,14 @@ async function automate(input: {
   client: PluginClientContext;
   pullRequest: PullRequest;
   rootPath: string;
-  provider: string;
+  profileId: string;
   prompt: string;
-  thinkingOptionId: string | null;
-  modeId: string | null;
 }) {
-  if (input.provider.trim().length === 0 || input.prompt.trim().length === 0) return;
+  if (input.profileId.trim().length === 0 || input.prompt.trim().length === 0) return;
+  const { config } = await input.client.paseo.config.get();
+  const profile = config.agentProfiles?.find((candidate) => candidate.id === input.profileId);
+  if (!profile) throw new Error(`The selected agent profile no longer exists: ${input.profileId}`);
+  if (!profile.model) throw new Error(`The selected agent profile needs a model: ${profile.name}`);
   const existing = findWorkspaceForPullRequest(await listActiveWorkspaces(input.client.paseo), input.pullRequest);
   const workspace = existing
     ? { id: existing.id }
@@ -88,9 +88,10 @@ async function automate(input: {
       };
   await input.client.paseo.workspaces.ref(workspace.id).agents.create({
     config: {
-      provider: input.provider.trim(),
-      ...(input.thinkingOptionId ? { thinkingOptionId: input.thinkingOptionId } : {}),
-      ...(input.modeId ? { modeId: input.modeId } : {}),
+      provider: `${profile.provider}/${profile.model}`,
+      ...(profile.thinkingOptionId ? { thinkingOptionId: profile.thinkingOptionId } : {}),
+      ...(profile.modeId ? { modeId: profile.modeId } : {}),
+      ...(profile.featureValues ? { featureValues: profile.featureValues } : {}),
     },
     prompt: input.prompt,
     title: `PR #${input.pullRequest.number}: ${input.pullRequest.title}`,

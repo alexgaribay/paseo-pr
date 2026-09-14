@@ -22,10 +22,8 @@ export const DEFAULT_ASSIGNMENT_PROMPT =
 
 export const assignmentAutomationSchema = z.object({
   enabled: z.boolean(),
-  provider: z.string(),
+  profileId: z.string(),
   prompt: z.string(),
-  thinkingOptionId: z.string().nullable(),
-  modeId: z.string().nullable(),
 });
 
 export const pluginSettingsSchema = z.object({
