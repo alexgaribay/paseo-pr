@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { clearResolvedCommands, expandHome, resolveExecutable } from "./command-path";
 import {
+  DEFAULT_ASSIGNMENT_PROMPT,
   DEFAULT_REFRESH_INTERVAL_MINUTES,
   isRefreshIntervalMinutes,
   type PluginSettingsOutput,
@@ -30,7 +31,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   ghPath: "",
   refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
   workspaceLabelNames: [],
-  assignmentAutomation: { enabled: false, provider: "", prompt: "" },
+  assignmentAutomation: { enabled: false, provider: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
 };
 
 let memory: StoredSettings | null = null;
@@ -140,11 +141,14 @@ function parseStoredSettings(value: unknown): StoredSettings {
             provider: "provider" in assignmentAutomation && typeof assignmentAutomation.provider === "string"
               ? assignmentAutomation.provider
               : "",
-            prompt: "prompt" in assignmentAutomation && typeof assignmentAutomation.prompt === "string"
-              ? assignmentAutomation.prompt
-              : "",
+            prompt:
+              "prompt" in assignmentAutomation &&
+              typeof assignmentAutomation.prompt === "string" &&
+              assignmentAutomation.prompt.trim().length > 0
+                ? assignmentAutomation.prompt
+                : DEFAULT_ASSIGNMENT_PROMPT,
           }
-        : { enabled: false, provider: "", prompt: "" },
+        : { enabled: false, provider: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
   };
 }
 

@@ -1,4 +1,5 @@
-import { useRpc } from "@getpaseo/plugin/client";
+import { usePaseo, useRpc } from "@getpaseo/plugin/client";
+import { SettingsAction, SettingsInput, SettingsSection, SettingsSelect, SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -22,6 +23,7 @@ export function SettingsPanel(props: {
   const toast = useToast();
   const fetchSettings = useRpc(prSettingsGet);
   const saveSettings = useRpc(prSettingsSet);
+  const paseo = usePaseo();
   const [ghPath, setGhPath] = useState("");
   const [refreshIntervalMinutes, setRefreshIntervalMinutes] = useState<RefreshIntervalMinutes>(
     DEFAULT_REFRESH_INTERVAL_MINUTES,
@@ -38,6 +40,11 @@ export function SettingsPanel(props: {
     queryKey: ["pr.settings"],
     queryFn: () => fetchSettings({}),
   });
+  const providersQuery = useQuery({
+    queryKey: ["paseo.providers"],
+    queryFn: () => paseo.providers.waitForReady({ timeoutMs: 5_000 }),
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     if (settingsQuery.data?.kind === "ok" || settingsQuery.data?.kind === "error") {
@@ -50,6 +57,13 @@ export function SettingsPanel(props: {
 
   const styles = useMemo(() => panelStyles(props.theme, props.compact), [props.compact, props.theme]);
   const catalog = settingsQuery.data?.workspaceLabels ?? [];
+  const modelOptions = (providersQuery.data?.entries ?? []).flatMap((entry) =>
+    entry.enabled && entry.status === "ready"
+      ? (entry.models ?? [])
+          .filter((model) => model.isSelectable !== false)
+          .map((model) => ({ label: `${entry.provider} · ${model.label}`, value: `${entry.provider}/${model.id}` }))
+      : [],
+  );
 
   const save = useMutation({
     mutationFn: async (input: {
@@ -143,53 +157,39 @@ export function SettingsPanel(props: {
           }}
         />
       </SettingRow>
-      <SettingRow
-        styles={styles}
+      <SettingsSection
         title="Assigned PR automation"
-        description="For PRs assigned after this is enabled, create a workspace, apply the configured labels, and run this prompt with the chosen provider/model. Paseo sends its normal completion notification when the agent finishes."
+        info="For new PR assignments, create a labeled workspace and run this default prompt. Paseo notifies you when the agent completes."
       >
-        <View style={styles.control}>
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityLabel="Enable assigned PR automation"
-            accessibilityState={{ checked: assignmentAutomation.enabled }}
-            onPress={() =>
-              setAssignmentAutomation((current) => ({ ...current, enabled: !current.enabled }))
-            }
-            style={styles.action}
-          >
-            <Text style={styles.actionLabel}>{assignmentAutomation.enabled ? "Enabled" : "Disabled"}</Text>
-          </Pressable>
-          <TextInput
-            value={assignmentAutomation.provider}
-            onChangeText={(provider) => setAssignmentAutomation((current) => ({ ...current, provider }))}
-            placeholder="provider/model"
-            placeholderTextColor={props.theme.colors.foregroundMuted}
-            style={styles.input}
-            autoCapitalize="none"
-            autoCorrect={false}
-            accessibilityLabel="Assigned PR automation provider and model"
-          />
-          <TextInput
-            value={assignmentAutomation.prompt}
-            onChangeText={(prompt) => setAssignmentAutomation((current) => ({ ...current, prompt }))}
-            placeholder="Prompt to run for an assigned pull request"
-            placeholderTextColor={props.theme.colors.foregroundMuted}
-            style={styles.input}
-            multiline
-            accessibilityLabel="Assigned PR automation prompt"
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Save assigned PR automation"
-            onPress={() => persist({ assignmentAutomation })}
-            style={styles.action}
-            disabled={save.isPending}
-          >
-            <Text style={styles.actionLabel}>{save.isPending ? "Saving…" : "Save automation"}</Text>
-          </Pressable>
-        </View>
-      </SettingRow>
+        <SettingsSwitch
+          label="Automatically run"
+          hint="Only assignments observed after this setting is enabled are automated."
+          value={assignmentAutomation.enabled}
+          onValueChange={(enabled) => setAssignmentAutomation((current) => ({ ...current, enabled }))}
+        />
+        <SettingsSelect
+          label="Model"
+          hint={providersQuery.isLoading ? "Loading available models…" : "Use the same provider/model catalog as Paseo."}
+          value={assignmentAutomation.provider}
+          options={modelOptions}
+          onValueChange={(provider) => setAssignmentAutomation((current) => ({ ...current, provider }))}
+          disabled={providersQuery.isLoading || modelOptions.length === 0}
+        />
+        <SettingsInput
+          key={settingsQuery.data?.assignmentAutomation.prompt ?? ""}
+          label="Default prompt"
+          hint="Sent to the agent after its workspace and labels are ready."
+          initialValue={assignmentAutomation.prompt}
+          onChangeText={(prompt) => setAssignmentAutomation((current) => ({ ...current, prompt }))}
+          placeholder="Review this pull request and summarize the changes."
+        />
+        <SettingsAction
+          label="Save automation"
+          actionLabel={save.isPending ? "Saving…" : "Save"}
+          onPress={() => persist({ assignmentAutomation })}
+          disabled={save.isPending}
+        />
+      </SettingsSection>
       <SettingRow
         styles={styles}
         title="GitHub CLI"

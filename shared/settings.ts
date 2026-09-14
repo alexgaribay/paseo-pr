@@ -17,6 +17,8 @@ export const refreshIntervalMinutesSchema = z.union([
 
 export const REFRESH_INTERVAL_MINUTES = [0, 1, 2, 5, 10, 15, 30] as const;
 export const DEFAULT_REFRESH_INTERVAL_MINUTES = 5;
+export const DEFAULT_ASSIGNMENT_PROMPT =
+  "Review this pull request. Summarize the changes, identify risks, and recommend the next action.";
 
 export const assignmentAutomationSchema = z.object({
   enabled: z.boolean(),
