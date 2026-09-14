@@ -173,6 +173,7 @@ export function SettingsPanel(props: {
           styles={styles}
           title="Model"
           description={providersQuery.isLoading ? "Loading available models…" : "Use the same provider/model catalog as Paseo."}
+          overlay
         >
           <ModelPicker
             theme={props.theme}
@@ -497,7 +498,12 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       paddingVertical: 8,
       fontSize: 14,
     },
-    modelPicker: { alignSelf: "stretch" as const, width: "100%" as const, gap: 8 },
+    modelPicker: {
+      alignSelf: "stretch" as const,
+      width: "100%" as const,
+      position: "relative" as const,
+      zIndex: 50,
+    },
     modelTrigger: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
@@ -510,7 +516,10 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       paddingHorizontal: 12,
     },
     modelMenu: {
-      marginTop: 4,
+      position: "absolute" as const,
+      top: 40,
+      left: 0,
+      right: 0,
       borderWidth: 1,
       borderColor: theme.colors.border,
       backgroundColor: theme.colors.surface1,
@@ -521,6 +530,7 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 4 },
       elevation: 8,
+      zIndex: 60,
     },
     modelSearch: {
       minHeight: 36,
