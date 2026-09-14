@@ -1,5 +1,4 @@
 import { usePaseo, useRpc } from "@getpaseo/plugin/client";
-import { SettingsAction, SettingsSection, SettingsSelect, SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -37,7 +36,11 @@ export function SettingsPanel(props: {
     modeId: null as string | null,
   });
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [thinkingPickerOpen, setThinkingPickerOpen] = useState(false);
+  const [modePickerOpen, setModePickerOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
+  const [thinkingSearch, setThinkingSearch] = useState("");
+  const [modeSearch, setModeSearch] = useState("");
   const [refreshOpen, setRefreshOpen] = useState(false);
 
   const settingsQuery = useQuery({
@@ -134,6 +137,11 @@ export function SettingsPanel(props: {
     });
   }
 
+  function updateAssignmentAutomation(next: typeof assignmentAutomation) {
+    setAssignmentAutomation(next);
+    persist({ assignmentAutomation: next });
+  }
+
   const ghStatus =
     ghPath.trim().length === 0
       ? resolved
@@ -180,87 +188,121 @@ export function SettingsPanel(props: {
           }}
         />
       </SettingRow>
-      <SettingsSection
-        title="Assigned PR automation"
-        info="For new PR assignments, create a labeled workspace and run this default prompt. Paseo notifies you when the agent completes."
+      <View style={styles.automationHeader}>
+        <Text style={styles.heading}>Assigned PR automation</Text>
+        <Text style={styles.muted}>
+          For new PR assignments, create a labeled workspace and run the configured prompt. Paseo notifies you when the agent completes.
+        </Text>
+      </View>
+      <SettingRow
+        styles={styles}
+        title="Automatically run"
+        description="Only assignments observed after this setting is enabled are automated."
       >
-        <SettingsSwitch
-          label="Automatically run"
-          hint="Only assignments observed after this setting is enabled are automated."
-          value={assignmentAutomation.enabled}
-          onValueChange={(enabled) => setAssignmentAutomation((current) => ({ ...current, enabled }))}
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityLabel="Automatically run assigned PR automation"
+          accessibilityState={{ checked: assignmentAutomation.enabled }}
+          onPress={() => updateAssignmentAutomation({ ...assignmentAutomation, enabled: !assignmentAutomation.enabled })}
+          style={styles.toggle}
+        >
+          <Text style={styles.toggleLabel}>{assignmentAutomation.enabled ? "Enabled" : "Disabled"}</Text>
+        </Pressable>
+      </SettingRow>
+      <SettingRow
+        styles={styles}
+        title="Model"
+        description={providersQuery.isLoading ? "Loading available models…" : "Use the same provider/model catalog as Paseo."}
+        overlay
+      >
+        <ModelPicker
+          theme={props.theme}
+          styles={styles}
+          value={assignmentAutomation.provider}
+          options={modelOptions}
+          open={modelPickerOpen}
+          query={modelSearch}
+          searchPlaceholder="Search models"
+          disabled={providersQuery.isLoading || modelOptions.length === 0}
+          onOpenChange={setModelPickerOpen}
+          onQueryChange={setModelSearch}
+          onChange={(provider) => {
+            const [providerId, modelId] = provider.split("/", 2);
+            const entry = (providersQuery.data?.entries ?? []).find((candidate) => candidate.provider === providerId);
+            const model = entry?.models?.find((candidate) => candidate.id === modelId);
+            updateAssignmentAutomation({
+              ...assignmentAutomation,
+              provider,
+              thinkingOptionId: model?.defaultThinkingOptionId ?? null,
+              modeId: entry?.defaultModeId ?? null,
+            });
+            setModelPickerOpen(false);
+          }}
         />
-        <SettingRow
+      </SettingRow>
+      <SettingRow
+        styles={styles}
+        title="Default prompt"
+        description="Sent to the agent after its workspace and labels are ready."
+      >
+        <TextInput
+          value={assignmentAutomation.prompt}
+          onChangeText={(prompt) => setAssignmentAutomation((current) => ({ ...current, prompt }))}
+          onBlur={() => persist({ assignmentAutomation })}
+          placeholder="Review this pull request and summarize the changes."
+          placeholderTextColor={props.theme.colors.foregroundMuted}
+          style={styles.promptInput}
+          multiline
+          textAlignVertical="top"
+          accessibilityLabel="Assigned PR automation default prompt"
+        />
+      </SettingRow>
+      <SettingRow
+        styles={styles}
+        title="Thinking level"
+        description="Controls the reasoning effort used for the selected model."
+        overlay
+      >
+        <ModelPicker
+          theme={props.theme}
           styles={styles}
-          title="Model"
-          description={providersQuery.isLoading ? "Loading available models…" : "Use the same provider/model catalog as Paseo."}
-          overlay
-        >
-          <ModelPicker
-            theme={props.theme}
-            styles={styles}
-            value={assignmentAutomation.provider}
-            options={modelOptions}
-            open={modelPickerOpen}
-            query={modelSearch}
-            disabled={providersQuery.isLoading || modelOptions.length === 0}
-            onOpenChange={setModelPickerOpen}
-            onQueryChange={setModelSearch}
-            onChange={(provider) => {
-              const [providerId, modelId] = provider.split("/", 2);
-              const entry = (providersQuery.data?.entries ?? []).find((candidate) => candidate.provider === providerId);
-              const model = entry?.models?.find((candidate) => candidate.id === modelId);
-              setAssignmentAutomation((current) => ({
-                ...current,
-                provider,
-                thinkingOptionId: model?.defaultThinkingOptionId ?? null,
-                modeId: entry?.defaultModeId ?? null,
-              }));
-              setModelPickerOpen(false);
-            }}
-          />
-        </SettingRow>
-        <SettingRow
-          styles={styles}
-          title="Default prompt"
-          description="Sent to the agent after its workspace and labels are ready."
-        >
-          <TextInput
-            value={assignmentAutomation.prompt}
-            onChangeText={(prompt) => setAssignmentAutomation((current) => ({ ...current, prompt }))}
-            placeholder="Review this pull request and summarize the changes."
-            placeholderTextColor={props.theme.colors.foregroundMuted}
-            style={styles.promptInput}
-            multiline
-            textAlignVertical="top"
-            accessibilityLabel="Assigned PR automation default prompt"
-          />
-        </SettingRow>
-        <SettingsSelect
-          label="Thinking level"
-          hint="Controls the reasoning effort used for this model."
           value={assignmentAutomation.thinkingOptionId ?? ""}
           options={thinkingOptions.map((option) => ({ label: option.label, value: option.id }))}
-          onValueChange={(thinkingOptionId) =>
-            setAssignmentAutomation((current) => ({ ...current, thinkingOptionId: thinkingOptionId || null }))
-          }
+          open={thinkingPickerOpen}
+          query={thinkingSearch}
+          searchPlaceholder="Search thinking levels"
           disabled={thinkingOptions.length === 0}
+          onOpenChange={setThinkingPickerOpen}
+          onQueryChange={setThinkingSearch}
+          onChange={(thinkingOptionId) => {
+            updateAssignmentAutomation({ ...assignmentAutomation, thinkingOptionId });
+            setThinkingPickerOpen(false);
+          }}
         />
-        <SettingsSelect
-          label="Access level"
-          hint="Uses the selected provider's normal agent mode."
+      </SettingRow>
+      <SettingRow
+        styles={styles}
+        title="Access level"
+        description="Uses the selected provider's normal agent mode."
+        overlay
+      >
+        <ModelPicker
+          theme={props.theme}
+          styles={styles}
           value={assignmentAutomation.modeId ?? ""}
           options={modeOptions.map((option) => ({ label: option.label, value: option.id }))}
-          onValueChange={(modeId) => setAssignmentAutomation((current) => ({ ...current, modeId: modeId || null }))}
+          open={modePickerOpen}
+          query={modeSearch}
+          searchPlaceholder="Search access levels"
           disabled={modeOptions.length === 0}
+          onOpenChange={setModePickerOpen}
+          onQueryChange={setModeSearch}
+          onChange={(modeId) => {
+            updateAssignmentAutomation({ ...assignmentAutomation, modeId });
+            setModePickerOpen(false);
+          }}
         />
-        <SettingsAction
-          label="Save automation"
-          actionLabel={save.isPending ? "Saving…" : "Save"}
-          onPress={() => persist({ assignmentAutomation })}
-          disabled={save.isPending}
-        />
-      </SettingsSection>
+      </SettingRow>
       <SettingRow
         styles={styles}
         title="GitHub CLI"
@@ -302,6 +344,7 @@ function ModelPicker(props: {
   options: readonly { label: string; value: string }[];
   open: boolean;
   query: string;
+  searchPlaceholder: string;
   disabled: boolean;
   onOpenChange(open: boolean): void;
   onQueryChange(query: string): void;
@@ -330,11 +373,11 @@ function ModelPicker(props: {
           <TextInput
             value={props.query}
             onChangeText={props.onQueryChange}
-            placeholder="Search models"
+            placeholder={props.searchPlaceholder}
             placeholderTextColor={props.theme.colors.foregroundMuted}
             style={props.styles.modelSearch}
             autoFocus
-            accessibilityLabel="Search automation models"
+            accessibilityLabel={props.searchPlaceholder}
           />
           <ScrollView style={props.styles.modelOptions} nestedScrollEnabled>
             {options.map((option) => (
@@ -479,6 +522,20 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
           flexShrink: 1,
           flexBasis: 0,
         },
+    automationHeader: { gap: 4, paddingTop: compact ? 4 : 16, paddingBottom: compact ? 2 : 8 },
+    toggle: {
+      alignSelf: "flex-end" as const,
+      minWidth: 92,
+      minHeight: 36,
+      justifyContent: "center" as const,
+      alignItems: "center" as const,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface2,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+    },
+    toggleLabel: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const },
     selectSection: { zIndex: 40, overflow: "visible" as const },
     labelsSection: { zIndex: 30, overflow: "visible" as const },
     heading: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const },
