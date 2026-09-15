@@ -136,7 +136,9 @@ export const prStatus = defineRpc({
 
 export const prProjects = defineRpc({
   name: "pr.projects",
-  input: z.object({}),
+  input: z.object({
+    includeExcluded: z.boolean().optional(),
+  }),
   output: listGithubProjectsOutputSchema,
 });
 

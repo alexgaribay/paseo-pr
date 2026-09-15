@@ -13,6 +13,7 @@ import {
   refreshIntervalLabel,
   type RefreshIntervalMinutes,
 } from "../shared/settings";
+import { wakeAssignmentAutomation } from "./automation-control";
 import { prProjects, type GithubProject } from "../shared/pr";
 import { WorkspaceLabelPicker } from "./workspace-label-picker";
 
@@ -82,16 +83,26 @@ export function SettingsPanel(props: {
 
   const styles = useMemo(() => panelStyles(props.theme, props.compact), [props.compact, props.theme]);
   const save = useMutation({
-    mutationFn: (input: {
+    mutationFn: ({
+      processCurrent: _processCurrent,
+      ...input
+    }: {
       ghPath: string;
       refreshIntervalMinutes: RefreshIntervalMinutes;
       excludedProjectIds: string[];
       workspaceLabelNames: string[];
       assignmentAutomation: AssignmentAutomation;
+      processCurrent: boolean;
     }) => saveSettings(input),
     onSuccess: (result, input) => {
       if (result.kind === "error") {
         toast.error(result.message);
+        setGhPath(result.ghPath);
+        setRefreshIntervalMinutes(result.refreshIntervalMinutes);
+        setExcludedProjectIds(result.excludedProjectIds);
+        setWorkspaceLabelNames(result.workspaceLabelNames);
+        setAssignmentAutomation(result.assignmentAutomation);
+        void settingsQuery.refetch();
         return;
       }
       setGhPath(result.ghPath);
@@ -99,6 +110,7 @@ export function SettingsPanel(props: {
       setExcludedProjectIds(result.excludedProjectIds);
       setWorkspaceLabelNames(result.workspaceLabelNames);
       setAssignmentAutomation(result.assignmentAutomation);
+      wakeAssignmentAutomation({ processCurrent: input.processCurrent });
       if (input.ghPath.trim() !== (settingsQuery.data?.ghPath ?? "").trim()) {
         toast.show(result.resolvedGhPath ? `Using ${result.resolvedGhPath}` : "Saved GitHub CLI path.", {
           variant: "success",
@@ -107,28 +119,35 @@ export function SettingsPanel(props: {
       void settingsQuery.refetch();
       props.onSaved?.();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not save settings."),
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Could not save settings.");
+      void settingsQuery.refetch();
+    },
   });
 
-  function persist(next: Partial<{
-    ghPath: string;
-    refreshIntervalMinutes: RefreshIntervalMinutes;
-    excludedProjectIds: string[];
-    workspaceLabelNames: string[];
-    assignmentAutomation: AssignmentAutomation;
-  }>) {
+  function persist(
+    next: Partial<{
+      ghPath: string;
+      refreshIntervalMinutes: RefreshIntervalMinutes;
+      excludedProjectIds: string[];
+      workspaceLabelNames: string[];
+      assignmentAutomation: AssignmentAutomation;
+    }>,
+    options: { processCurrent?: boolean } = {},
+  ) {
     save.mutate({
       ghPath: next.ghPath ?? ghPath,
       refreshIntervalMinutes: next.refreshIntervalMinutes ?? refreshIntervalMinutes,
       excludedProjectIds: next.excludedProjectIds ?? excludedProjectIds,
       workspaceLabelNames: next.workspaceLabelNames ?? workspaceLabelNames,
       assignmentAutomation: next.assignmentAutomation ?? assignmentAutomation,
+      processCurrent: options.processCurrent ?? false,
     });
   }
 
-  function updateAutomation(next: AssignmentAutomation) {
+  function updateAutomation(next: AssignmentAutomation, processCurrent = false) {
     setAssignmentAutomation(next);
-    persist({ assignmentAutomation: next });
+    persist({ assignmentAutomation: next }, { processCurrent });
   }
 
   const profileOptions: PickerOption[] = (profilesQuery.data ?? [])
@@ -140,6 +159,13 @@ export function SettingsPanel(props: {
     }));
   const selectedProfile = profilesQuery.data?.find((profile) => profile.id === assignmentAutomation.profileId);
   const resolved = settingsQuery.data?.resolvedGhPath;
+
+  useEffect(() => {
+    if (assignmentAutomation.profileId.trim().length > 0) return;
+    if (profileOptions.length !== 1) return;
+    setAssignmentAutomation((current) => ({ ...current, profileId: profileOptions[0].value }));
+  }, [assignmentAutomation.profileId, profileOptions]);
+
 
   return (
     <View style={styles.screen}>
@@ -184,13 +210,26 @@ export function SettingsPanel(props: {
       </SettingRow>
       <View style={styles.automationHeader}>
         <Text style={styles.heading}>Assigned PR automation</Text>
-        <Text style={styles.muted}>For new assignments, create a labeled workspace and run the selected profile. Paseo notifies you when the agent completes.</Text>
+        <Text style={styles.muted}>
+          When enabled, start a labeled workspace and run the selected profile for current and future
+          assignments or review requests. Paseo notifies you when the agent completes.
+        </Text>
       </View>
       <SettingsSwitch
         label="Automatically run"
-        hint="Only assignments observed after this setting is enabled are automated."
+        hint="Enabling this setting processes current assignments and review requests immediately."
         value={assignmentAutomation.enabled}
-        onValueChange={(enabled) => updateAutomation({ ...assignmentAutomation, enabled })}
+        onValueChange={(enabled) => {
+          if (enabled) {
+            const profileId = assignmentAutomation.profileId.trim();
+            const prompt = assignmentAutomation.prompt.trim();
+            if (profileId.length === 0 || prompt.length === 0) {
+              toast.error("Choose a profile and prompt before enabling automation.");
+              return;
+            }
+          }
+          updateAutomation({ ...assignmentAutomation, enabled }, enabled && !assignmentAutomation.enabled);
+        }}
       />
       <SettingRow styles={styles} title="Agent profile" description={profilesQuery.isLoading ? "Loading your Paseo profiles…" : selectedProfile ? "The profile supplies the provider, model, thinking level, and access mode." : "Choose an existing profile that includes a model."} overlay>
         <SearchablePicker theme={props.theme} styles={styles} value={assignmentAutomation.profileId} options={profileOptions} open={profileOpen} query={profileSearch} disabled={profilesQuery.isLoading || profileOptions.length === 0} emptyLabel="Select a profile" searchPlaceholder="Search profiles" onOpenChange={setProfileOpen} onQueryChange={setProfileSearch} onChange={(profileId) => {
@@ -228,7 +267,7 @@ function SearchablePicker(props: {
     </Pressable>
     {props.open ? <View style={props.styles.pickerMenu} accessibilityRole="menu">
       <TextInput value={props.query} onChangeText={props.onQueryChange} onBlur={() => setTimeout(() => props.onOpenChange(false), 200)} autoFocus placeholder={props.searchPlaceholder} placeholderTextColor={props.theme.colors.foregroundMuted} style={props.styles.pickerSearch} />
-      <ScrollView style={props.styles.pickerOptions} nestedScrollEnabled>{options.map((option) => <Pressable key={option.value} accessibilityRole="menuitem" onPress={() => props.onChange(option.value)} style={props.styles.selectItem}>
+      <ScrollView keyboardShouldPersistTaps="handled" style={props.styles.pickerOptions} nestedScrollEnabled>{options.map((option) => <Pressable key={option.value} accessibilityRole="menuitem" onPressIn={() => props.onChange(option.value)} style={props.styles.selectItem}>
         <View style={stylesForOption(props.styles)}><Text style={option.value === props.value ? props.styles.selectItemLabelSelected : props.styles.selectItemLabel}>{option.label}</Text>{option.description ? <Text style={props.styles.muted} numberOfLines={1}>{option.description}</Text> : null}</View>
       </Pressable>)}</ScrollView>
     </View> : null}

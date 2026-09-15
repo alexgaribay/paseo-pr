@@ -1,62 +1,121 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
+import { registerAssignmentAutomationWake } from "./automation-control";
 import { findWorkspaceForPullRequest, createPullRequestWorkspace, listActiveWorkspaces, pullRequestWorkspaceKey } from "./workspace-from-pr";
 import { prList, prProjects, type PullRequest } from "../shared/pr";
 import { prSettingsGet } from "../shared/settings";
 import { prWorkspaceLabelsApply } from "../shared/workspace-labels";
 
+const AUTOMATION_POLL_MS = 60_000;
+
 export function startAssignmentAutomation(client: PluginClientContext): () => void {
   const seen = new Set<string>();
   let initialized = false;
   let stopped = false;
+  let polling = false;
+  let pendingWake = false;
+  let processCurrentOnNextPoll = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
+  const schedule = (delay: number) => {
+    if (!stopped) timer = setTimeout(() => void poll(), delay);
+  };
+
   const poll = async () => {
+    if (polling) {
+      pendingWake = true;
+      return;
+    }
+    polling = true;
+    if (processCurrentOnNextPoll) {
+      seen.clear();
+      initialized = true;
+      processCurrentOnNextPoll = false;
+    }
     try {
       const settings = await client.rpc(prSettingsGet, {});
       if (!settings.assignmentAutomation.enabled) {
         initialized = false;
         seen.clear();
       } else {
-        const assigned = await client.rpc(prList, { assignee: "me", limit: 100 });
-        if (assigned.kind === "ok") {
-          if (!initialized) {
-            for (const pullRequest of assigned.pullRequests) seen.add(pullRequestWorkspaceKey(pullRequest));
-            initialized = true;
-          } else {
-            const projects = (await client.rpc(prProjects, {})).projects;
-            for (const pullRequest of assigned.pullRequests) {
-              const key = pullRequestWorkspaceKey(pullRequest);
-              if (seen.has(key)) continue;
-              const project = projects.find((entry) => entry.projectId === pullRequest.projectId);
-              if (!project) continue;
-              try {
-                await automate({
-                  client,
-                  pullRequest,
-                  rootPath: project.rootPath,
-                  profileId: settings.assignmentAutomation.profileId,
-                  prompt: settings.assignmentAutomation.prompt,
-                });
-                seen.add(key);
-              } catch {
-                // Retry this assignment on the next poll.
+        const { profileId, prompt } = settings.assignmentAutomation;
+        if (profileId.trim().length === 0 || prompt.trim().length === 0) {
+          console.warn("[paseo-pr] Assigned PR automation is enabled but needs a profile and prompt.");
+        } else {
+          const candidates = await listAutomationCandidates(client);
+          if (candidates) {
+            if (!initialized) {
+              for (const pullRequest of candidates) seen.add(pullRequestWorkspaceKey(pullRequest));
+              initialized = true;
+            } else {
+              const projects = (await client.rpc(prProjects, {})).projects;
+              for (const pullRequest of candidates) {
+                const key = pullRequestWorkspaceKey(pullRequest);
+                if (seen.has(key)) continue;
+                const project = projects.find((entry) => entry.projectId === pullRequest.projectId);
+                if (!project) {
+                  console.warn(`[paseo-pr] Skipping automation for PR #${pullRequest.number}: project is excluded or unavailable.`);
+                  continue;
+                }
+                try {
+                  console.info(`[paseo-pr] Starting automation for ${pullRequest.owner}/${pullRequest.repo}#${pullRequest.number}.`);
+                  await automate({
+                    client,
+                    pullRequest,
+                    rootPath: project.rootPath,
+                    profileId,
+                    prompt,
+                  });
+                  seen.add(key);
+                } catch (error) {
+                  console.error(
+                    `[paseo-pr] Automation failed for ${pullRequest.owner}/${pullRequest.repo}#${pullRequest.number}:`,
+                    error instanceof Error ? error.message : error,
+                  );
+                }
               }
             }
           }
         }
       }
-      const delay = Math.max(60_000, settings.refreshIntervalMinutes * 60_000);
-      if (!stopped) timer = setTimeout(() => void poll(), delay);
-    } catch {
-      if (!stopped) timer = setTimeout(() => void poll(), 60_000);
+    } catch (error) {
+      console.error("[paseo-pr] Automation poll failed:", error instanceof Error ? error.message : error);
+    } finally {
+      polling = false;
+      const delay = pendingWake ? 0 : AUTOMATION_POLL_MS;
+      pendingWake = false;
+      schedule(delay);
     }
   };
+
+  const unregisterWake = registerAssignmentAutomationWake(({ processCurrent }) => {
+    clearTimeout(timer);
+    processCurrentOnNextPoll ||= processCurrent;
+    void poll();
+  });
 
   void poll();
   return () => {
     stopped = true;
     clearTimeout(timer);
+    unregisterWake();
   };
+}
+
+async function listAutomationCandidates(client: PluginClientContext): Promise<PullRequest[] | null> {
+  const [assigned, waiting] = await Promise.all([
+    client.rpc(prList, { assignee: "me", limit: 100 }),
+    client.rpc(prList, { waiting: "me", limit: 100 }),
+  ]);
+  if (assigned.kind === "unavailable" || waiting.kind === "unavailable") return null;
+
+  const merged = new Map<string, PullRequest>();
+  for (const result of [assigned, waiting]) {
+    if (result.kind !== "ok") continue;
+    for (const pullRequest of result.pullRequests) {
+      merged.set(pullRequestWorkspaceKey(pullRequest), pullRequest);
+    }
+  }
+  return [...merged.values()];
 }
 
 async function automate(input: {

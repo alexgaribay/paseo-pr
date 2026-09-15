@@ -15,8 +15,11 @@ export async function handlePrStatus(_input: Record<string, never>) {
   return await getGhStatus();
 }
 
-export async function handlePrProjects(_input: Record<string, never>, context: PluginHandlerContext) {
-  const projects = await listResolvedGithubProjects(context);
+export async function handlePrProjects(
+  input: { includeExcluded?: boolean },
+  context: PluginHandlerContext,
+) {
+  const projects = await listVisibleProjects(context, input.includeExcluded === true);
   return {
     projects: projects.map((project) => ({
       projectId: project.projectId,
@@ -33,15 +36,22 @@ export async function handlePrList(
   input: ListPullRequestsInput,
   context: PluginHandlerContext,
 ): Promise<ListPullRequestsOutput> {
-  const projects = await listResolvedGithubProjects(context);
+  const allProjects = await listResolvedGithubProjects(context);
   const excludedProjectIds = new Set(await loadStoredExcludedProjectIds());
-  const selected = selectProjects(
-    projects.filter((project) => !excludedProjectIds.has(project.projectId)),
-    input.projectIds,
-  );
+  const visibleProjects = allProjects.filter((project) => !excludedProjectIds.has(project.projectId));
+  const selected = selectProjects(visibleProjects, input.projectIds);
 
   if (input.projectIds && input.projectIds.length > 0 && selected.length === 0) {
-    return { kind: "error", message: "That project is not a GitHub remote." };
+    const wanted = new Set(input.projectIds);
+    const excludedOnly = allProjects.some(
+      (project) => wanted.has(project.projectId) && excludedProjectIds.has(project.projectId),
+    );
+    return {
+      kind: "error",
+      message: excludedOnly
+        ? "That project is excluded in plugin settings."
+        : "That project is not a GitHub remote.",
+    };
   }
 
   const listState = githubListState(input.states);
@@ -97,10 +107,7 @@ export async function handlePrAttention(
   const status = await getGhStatus();
   if (status.kind !== "ok") return status;
 
-  const excludedProjectIds = new Set(await loadStoredExcludedProjectIds());
-  const projects = (await listResolvedGithubProjects(context)).filter(
-    (project) => !excludedProjectIds.has(project.projectId),
-  );
+  const projects = await listVisibleProjects(context);
   const results = await Promise.all(
     projects.map((project) =>
       listRepoPullRequests({
@@ -133,6 +140,13 @@ export async function handlePrAttention(
   }
   pullRequests.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   return { kind: "ok", count: pullRequests.length, pullRequests };
+}
+
+async function listVisibleProjects(context: PluginHandlerContext, includeExcluded = false) {
+  const projects = await listResolvedGithubProjects(context);
+  if (includeExcluded) return projects;
+  const excludedProjectIds = new Set(await loadStoredExcludedProjectIds());
+  return projects.filter((project) => !excludedProjectIds.has(project.projectId));
 }
 
 function selectProjects<T extends { projectId: string }>(projects: T[], projectIds: string[] | undefined): T[] {

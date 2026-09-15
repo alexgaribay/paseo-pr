@@ -286,6 +286,13 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   }, [layout.compact, theme]);
 
   const projects = projectsQuery.data ?? [];
+  useEffect(() => {
+    const available = new Set(projects.map((project) => project.projectId));
+    setProjectIds((current) => {
+      const next = current.filter((projectId) => available.has(projectId));
+      return next.length === current.length ? current : next;
+    });
+  }, [projects]);
   const listResult = listQuery.data;
   const listed = listResult?.kind === "ok" ? listResult.pullRequests : [];
   const attentionPrs = attentionQuery.data?.kind === "ok" ? attentionQuery.data.pullRequests : [];

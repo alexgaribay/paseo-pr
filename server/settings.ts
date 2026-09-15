@@ -108,6 +108,11 @@ export async function handleSettingsSet(input: {
   await writeStoredSettings(next);
   memory = next;
   clearResolvedCommands();
+  if (next.assignmentAutomation.enabled) {
+    console.info(
+      `[paseo-pr] Saved automation settings: profileId=${next.assignmentAutomation.profileId} promptLength=${next.assignmentAutomation.prompt.length}`,
+    );
+  }
   return await toSettingsOutput({ kind: "ok", stored: next });
 }
 
