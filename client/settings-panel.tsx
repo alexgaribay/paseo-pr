@@ -14,7 +14,8 @@ import {
   type RefreshIntervalMinutes,
 } from "../shared/settings";
 import { wakeAssignmentAutomation } from "./automation-control";
-import { prProjects, type GithubProject } from "../shared/pr";
+import { prProjects } from "../shared/pr";
+import { ProjectExclusionPicker } from "./project-exclusion-picker";
 import { WorkspaceLabelPicker } from "./workspace-label-picker";
 
 interface AssignmentAutomation {
@@ -53,8 +54,6 @@ export function SettingsPanel(props: {
   const [refreshOpen, setRefreshOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileSearch, setProfileSearch] = useState("");
-  const [excludedProjectsOpen, setExcludedProjectsOpen] = useState(false);
-  const [excludedProjectsSearch, setExcludedProjectsSearch] = useState("");
 
   const settingsQuery = useQuery({
     queryKey: ["pr.settings"],
@@ -66,8 +65,8 @@ export function SettingsPanel(props: {
     staleTime: 60_000,
   });
   const projectsQuery = useQuery({
-    queryKey: ["pr.projects"],
-    queryFn: async () => (await fetchProjects({})).projects,
+    queryKey: ["pr.projects", "settings"],
+    queryFn: async () => (await fetchProjects({ includeExcluded: true })).projects,
     staleTime: 60_000,
   });
 
@@ -169,6 +168,18 @@ export function SettingsPanel(props: {
 
   return (
     <View style={styles.screen}>
+      <SettingRow styles={styles} title="Excluded projects" description="Hidden from pull-request lists, the waiting count, and assigned-PR automation." overlay>
+        <ProjectExclusionPicker
+          theme={props.theme}
+          compact={props.compact}
+          projects={projectsQuery.data ?? []}
+          selectedProjectIds={excludedProjectIds}
+          onChange={(projectIds) => {
+            setExcludedProjectIds(projectIds);
+            persist({ excludedProjectIds: projectIds });
+          }}
+        />
+      </SettingRow>
       <SettingRow styles={styles} title="GitHub CLI" description={resolved ? `Using ${resolved}` : "Leave blank to auto-detect."}>
         <TextInput
           value={ghPath}
@@ -184,23 +195,6 @@ export function SettingsPanel(props: {
           setRefreshIntervalMinutes(minutes);
           persist({ refreshIntervalMinutes: minutes });
         }} />
-      </SettingRow>
-      <SettingRow styles={styles} title="Excluded projects" description="Excluded projects are hidden from pull-request lists, the waiting count, and assigned-PR automation." overlay>
-        <ProjectExclusionPicker
-          theme={props.theme}
-          styles={styles}
-          projects={projectsQuery.data ?? []}
-          selectedProjectIds={excludedProjectIds}
-          open={excludedProjectsOpen}
-          query={excludedProjectsSearch}
-          disabled={projectsQuery.isLoading}
-          onOpenChange={setExcludedProjectsOpen}
-          onQueryChange={setExcludedProjectsSearch}
-          onChange={(projectIds) => {
-            setExcludedProjectIds(projectIds);
-            persist({ excludedProjectIds: projectIds });
-          }}
-        />
       </SettingRow>
       <SettingRow styles={styles} title="Workspace labels" description="Apply these labels when this plugin creates a workspace." overlay>
         <WorkspaceLabelPicker theme={props.theme} compact={props.compact} catalog={settingsQuery.data?.workspaceLabels ?? []} selectedNames={workspaceLabelNames} onChange={(names) => {
@@ -274,52 +268,6 @@ function SearchablePicker(props: {
   </View>;
 }
 
-function ProjectExclusionPicker(props: {
-  theme: PluginTheme;
-  styles: ReturnType<typeof panelStyles>;
-  projects: readonly GithubProject[];
-  selectedProjectIds: readonly string[];
-  open: boolean;
-  query: string;
-  disabled: boolean;
-  onOpenChange: (open: boolean) => void;
-  onQueryChange: (query: string) => void;
-  onChange: (projectIds: string[]) => void;
-}) {
-  const selectedIds = new Set(props.selectedProjectIds);
-  const projects = props.projects.filter((project) => {
-    const needle = props.query.trim().toLowerCase();
-    return needle.length === 0 || `${project.owner}/${project.repo} ${project.displayName}`.toLowerCase().includes(needle);
-  });
-  const selectedCount = props.selectedProjectIds.length;
-
-  function toggle(projectId: string) {
-    props.onChange(
-      selectedIds.has(projectId)
-        ? props.selectedProjectIds.filter((candidate) => candidate !== projectId)
-        : [...props.selectedProjectIds, projectId],
-    );
-  }
-
-  return <View style={props.styles.picker}>
-    <Pressable disabled={props.disabled} accessibilityRole="button" accessibilityState={{ expanded: props.open, disabled: props.disabled }} onPress={() => props.onOpenChange(!props.open)} style={props.styles.pickerTrigger}>
-      <Text style={props.styles.selectValue} numberOfLines={1}>{selectedCount === 0 ? "No excluded projects" : `${selectedCount} project${selectedCount === 1 ? "" : "s"} excluded`}</Text>
-      <Icon name={props.open ? "ChevronUp" : "ChevronDown"} size={14} color={props.theme.colors.foregroundMuted} />
-    </Pressable>
-    {props.open ? <View style={props.styles.pickerMenu} accessibilityRole="menu">
-      <TextInput value={props.query} onChangeText={props.onQueryChange} onBlur={() => setTimeout(() => props.onOpenChange(false), 200)} autoFocus placeholder="Search projects" placeholderTextColor={props.theme.colors.foregroundMuted} style={props.styles.pickerSearch} />
-      <ScrollView keyboardShouldPersistTaps="handled" style={props.styles.pickerOptions} nestedScrollEnabled>
-        {projects.length === 0 ? <Text style={props.styles.pickerEmpty}>No matching projects.</Text> : projects.map((project) => {
-          const selected = selectedIds.has(project.projectId);
-          return <Pressable key={project.projectId} accessibilityRole="menuitem" accessibilityState={{ selected }} onPressIn={() => toggle(project.projectId)} style={props.styles.selectItem}>
-            <Text style={selected ? props.styles.selectItemLabelSelected : props.styles.selectItemLabel} numberOfLines={1}>{project.owner}/{project.repo}</Text>
-            {selected ? <Icon name="Check" size={12} color={props.theme.colors.foreground} /> : null}
-          </Pressable>;
-        })}
-      </ScrollView>
-    </View> : null}
-  </View>;
-}
 
 function stylesForOption(styles: ReturnType<typeof panelStyles>) { return { flex: 1, gap: 2, minWidth: 0 }; }
 
