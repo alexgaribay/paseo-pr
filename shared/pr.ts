@@ -40,6 +40,7 @@ export const pullRequestSchema = z.object({
   reviewDecision: z.string().nullable(),
   headRefName: z.string().nullable(),
   waitingOnViewer: z.boolean(),
+  needsRereview: z.boolean(),
 });
 
 export const pullRequestCommentKindSchema = z.enum(["comment", "review", "line"]);

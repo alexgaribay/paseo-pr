@@ -136,7 +136,7 @@ export async function handlePrAttention(
         state: "open",
         author: "anyone",
         assignee: "anyone",
-        waiting: "me",
+        waiting: "anyone",
         limit: 100,
       }),
     ),
@@ -152,6 +152,7 @@ export async function handlePrAttention(
       continue;
     }
     for (const pullRequest of result.pullRequests) {
+      if (!pullRequest.waitingOnViewer && !pullRequest.needsRereview) continue;
       const key = `${pullRequest.owner}/${pullRequest.repo}#${pullRequest.number}`;
       if (seen.has(key)) continue;
       seen.add(key);

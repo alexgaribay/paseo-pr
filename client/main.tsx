@@ -78,7 +78,7 @@ function waitingInboxRows(input: {
   const personFiltersActive = input.author === "me" || input.assignee === "me";
   const source =
     personFiltersActive || input.attention.length === 0
-      ? input.listed.filter((pullRequest) => pullRequest.waitingOnViewer)
+      ? input.listed.filter((pullRequest) => pullRequest.waitingOnViewer || pullRequest.needsRereview)
       : input.attention;
   const wantedProjects = new Set(input.projectIds);
   const filterStates = input.states.length > 0 && input.states.length < 3;
@@ -479,15 +479,15 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
             {pane === "inbox" && !selectedPullRequest && waitingCount > 0 ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Reviews awaiting on me"
+                accessibilityLabel="Reviews needing your attention"
                 onPress={() => setWaiting("me")}
                 style={styles.actionOutlined}
               >
-                <Text style={styles.actionQuietLabel}>Reviews Awaiting on Me</Text>
+                <Text style={styles.actionQuietLabel}>Reviews Need Attention</Text>
                 <CountBadge
                   theme={theme}
                   count={waitingCount}
-                  accessibilityLabel={`${waitingCount} pull requests waiting on you`}
+                  accessibilityLabel={`${waitingCount} pull requests need your review attention`}
                 />
               </Pressable>
             ) : null}
@@ -580,7 +580,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
             <FilterDropdown
               theme={theme}
               compact={layout.compact}
-              label="Awaiting Review"
+              label="Review Attention"
               items={PEOPLE}
               selectedIds={[waiting]}
               open={openFilter === "waiting"}
@@ -593,7 +593,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
                 <CountBadge
                   theme={theme}
                   count={waitingCount}
-                  accessibilityLabel={`${waitingCount} pull requests waiting on you`}
+                  accessibilityLabel={`${waitingCount} pull requests need your review attention`}
                 />
               }
             />

@@ -60,6 +60,8 @@ export function PrShowPanel(props: {
       <View style={styles.badges}>
         {pullRequest.waitingOnViewer ? (
           <StatusBadge theme={props.theme} label="Awaiting Review" tone="warning" />
+        ) : pullRequest.needsRereview ? (
+          <StatusBadge theme={props.theme} label="Needs re-review" tone="warning" />
         ) : (
           <StatusBadge theme={props.theme} label={status} tone={pullRequestStatusTone(pullRequest)} />
         )}

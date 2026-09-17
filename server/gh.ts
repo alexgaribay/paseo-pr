@@ -39,6 +39,8 @@ const UNAUTHENTICATED_GH_MESSAGE = "Run `gh auth login` on this machine, then re
 
 const WAITING_SEARCHES = ["review-requested:@me", "author:@me review:changes_requested"] as const;
 
+const REREVIEW_STATES = new Set(["APPROVED", "CHANGES_REQUESTED"]);
+
 interface GhPullRequestJson {
   number: unknown;
   title: unknown;
@@ -102,7 +104,16 @@ export async function listRepoPullRequests(input: {
     if (result.kind !== "ok") return result;
     pages.push(result.pullRequests);
   }
-  return { kind: "ok", pullRequests: mergePullRequests(pages, input.limit) };
+
+  const pullRequests = mergePullRequests(pages, input.limit);
+  return {
+    kind: "ok",
+    pullRequests: await enrichRereviewStatus({
+      repo: input.repo,
+      pullRequests,
+      viewer: await viewerLogin(),
+    }),
+  };
 }
 
 export async function viewRepoPullRequest(input: {
@@ -243,13 +254,15 @@ function listSearchQueries(input: {
     return [userSearch.length > 0 ? userSearch : undefined];
   }
 
-  return WAITING_SEARCHES.map((query) => {
+  const searches: Array<string | undefined> = WAITING_SEARCHES.map((query) => {
     const parts: string[] = [query];
     if (input.author === "me" && !query.includes("author:@me")) parts.push("author:@me");
     if (input.assignee === "me") parts.push("assignee:@me");
     if (userSearch.length > 0) parts.push(userSearch);
     return parts.join(" ");
   });
+  searches.push(userSearch.length > 0 ? userSearch : undefined);
+  return searches;
 }
 
 function mergePullRequests(pages: PullRequest[][], limit: number): PullRequest[] {
@@ -307,7 +320,91 @@ function mapPullRequest(input: {
       reviewDecision,
       reviewRequests: readLogins(row.reviewRequests),
     }),
+    needsRereview: false,
   };
+}
+
+async function enrichRereviewStatus(input: {
+  repo: GithubRepo;
+  pullRequests: PullRequest[];
+  viewer: string | null;
+}): Promise<PullRequest[]> {
+  const viewerLogin = input.viewer;
+  if (!viewerLogin || input.pullRequests.length === 0) return input.pullRequests;
+
+  const query = `query RereviewStatus($owner: String!, $repo: String!, $viewer: String!) {
+    repository(owner: $owner, name: $repo) {
+      ${input.pullRequests
+        .map(
+          (pullRequest, index) => `pr${index}: pullRequest(number: ${pullRequest.number}) {
+            headRefOid
+            reviews(last: 20, author: $viewer) {
+              nodes {
+                author { login }
+                state
+                commit { oid }
+              }
+            }
+          }`,
+        )
+        .join("\n")}
+    }
+  }`;
+  const args = [
+    "api",
+    "graphql",
+    "-f",
+    `query=${query}`,
+    "-f",
+    `owner=${input.repo.owner}`,
+    "-f",
+    `viewer=${viewerLogin}`,
+    "-f",
+    `repo=${input.repo.repo}`,
+  ];
+  if (input.repo.host !== "github.com") args.splice(2, 0, "--hostname", input.repo.host);
+
+  const result = await runCommand({ command: "gh", args, timeoutMs: 45_000 });
+  if (result.code !== 0) {
+    console.warn(`[paseo-pr] Could not load review freshness for ${ghRepoFlag(input.repo)}: ${ghErrorMessage(result.stderr, result.stdout)}`);
+    return input.pullRequests;
+  }
+
+  const parsed = parseJson(result.stdout);
+  const data = parsed && typeof parsed === "object" ? Reflect.get(parsed, "data") : null;
+  const repository = data && typeof data === "object" ? Reflect.get(data, "repository") : null;
+  if (!repository || typeof repository !== "object") return input.pullRequests;
+
+  const viewer = viewerLogin.toLowerCase();
+  return input.pullRequests.map((pullRequest, index) => ({
+    ...pullRequest,
+    needsRereview: needsRereview(Reflect.get(repository, `pr${index}`), viewer),
+  }));
+}
+
+export function needsRereview(value: unknown, viewer: string): boolean {
+  if (!value || typeof value !== "object") return false;
+  const headRefOid = readOptionalString(Reflect.get(value, "headRefOid"));
+  if (!headRefOid) return false;
+  const reviewsValue = Reflect.get(value, "reviews");
+  if (!reviewsValue || typeof reviewsValue !== "object") return false;
+  const nodes = Reflect.get(reviewsValue, "nodes");
+  if (!Array.isArray(nodes)) return false;
+
+  let reviewedCurrentHead = false;
+  let reviewedOlderHead = false;
+  for (const review of nodes) {
+    if (!review || typeof review !== "object") continue;
+    if (!REREVIEW_STATES.has(readOptionalString(Reflect.get(review, "state")) ?? "")) continue;
+    if (readAuthor(Reflect.get(review, "author")).toLowerCase() !== viewer) continue;
+    const commit = Reflect.get(review, "commit");
+    const reviewedOid =
+      commit && typeof commit === "object" ? readOptionalString(Reflect.get(commit, "oid")) : null;
+    if (!reviewedOid) continue;
+    if (reviewedOid === headRefOid) reviewedCurrentHead = true;
+    else reviewedOlderHead = true;
+  }
+  return reviewedOlderHead && !reviewedCurrentHead;
 }
 
 function mapPullRequestDetail(input: {

@@ -95,7 +95,7 @@ export function formatPullRequestStatus(pullRequest: PullRequest): string {
 }
 
 export function pullRequestStatusTone(pullRequest: PullRequest): "success" | "warning" | "danger" | "muted" {
-  if (pullRequest.waitingOnViewer) return "warning";
+  if (pullRequest.waitingOnViewer || pullRequest.needsRereview) return "warning";
   if (pullRequest.isDraft && pullRequest.state === "open") return "muted";
   if (pullRequest.state === "open") return "success";
   return "muted";

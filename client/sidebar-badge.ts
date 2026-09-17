@@ -121,7 +121,7 @@ export function renderSidebarBadge(count: number) {
   const badge = existing instanceof HTMLElement ? existing : document.createElement("span");
   badge.setAttribute(BADGE_ATTR, String(count));
   badge.setAttribute(THEME_ATTR, themeKey);
-  badge.setAttribute("aria-label", `${count} pull requests waiting on you`);
+  badge.setAttribute("aria-label", `${count} pull requests need your review attention`);
   badge.textContent = label;
   badge.style.marginLeft = "auto";
   badge.style.minWidth = "18px";

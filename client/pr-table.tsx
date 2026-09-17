@@ -154,6 +154,8 @@ function TableRow(props: {
       <View style={styles.trailing}>
         {pullRequest.waitingOnViewer ? (
           <StatusBadge theme={props.theme} label="Awaiting Review" tone="warning" />
+        ) : pullRequest.needsRereview ? (
+          <StatusBadge theme={props.theme} label="Needs re-review" tone="warning" />
         ) : (
           <StatusBadge theme={props.theme} label={status} tone={pullRequestStatusTone(pullRequest)} />
         )}
