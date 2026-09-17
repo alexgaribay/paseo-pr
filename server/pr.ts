@@ -1,6 +1,6 @@
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
 import { getGhStatus, listRepoPullRequests, viewRepoPullRequest } from "./gh";
-import { findGithubProject, listResolvedGithubProjects } from "./projects";
+import { findGithubProject, listResolvedGithubProjects, ProjectDiscoveryUnavailableError } from "./projects";
 import { loadStoredExcludedProjectIds } from "./settings";
 import type {
   AttentionOutput,
@@ -19,24 +19,34 @@ export async function handlePrProjects(
   input: { includeExcluded?: boolean },
   context: PluginHandlerContext,
 ) {
-  const projects = await listVisibleProjects(context, input.includeExcluded === true);
-  return {
-    projects: projects.map((project) => ({
-      projectId: project.projectId,
-      displayName: project.displayName,
-      host: project.host,
-      owner: project.owner,
-      repo: project.repo,
-      rootPath: project.rootPath,
-    })),
-  };
+  try {
+    const projects = await listVisibleProjects(context, input.includeExcluded === true);
+    return {
+      kind: "ok" as const,
+      projects: projects.map((project) => ({
+        projectId: project.projectId,
+        displayName: project.displayName,
+        host: project.host,
+        owner: project.owner,
+        repo: project.repo,
+        rootPath: project.rootPath,
+      })),
+    };
+  } catch (error) {
+    return { kind: "error" as const, message: projectDiscoveryMessage(error) };
+  }
 }
 
 export async function handlePrList(
   input: ListPullRequestsInput,
   context: PluginHandlerContext,
 ): Promise<ListPullRequestsOutput> {
-  const allProjects = await listResolvedGithubProjects(context);
+  let allProjects;
+  try {
+    allProjects = await listResolvedGithubProjects(context);
+  } catch (error) {
+    return { kind: "error", message: projectDiscoveryMessage(error) };
+  }
   const excludedProjectIds = new Set(await loadStoredExcludedProjectIds());
   const visibleProjects = allProjects.filter((project) => !excludedProjectIds.has(project.projectId));
   const selected = selectProjects(visibleProjects, input.projectIds);
@@ -89,7 +99,12 @@ export async function handlePrView(
   input: { projectId: string; number: number },
   context: PluginHandlerContext,
 ): Promise<ViewPullRequestOutput> {
-  const project = await findGithubProject(context, input.projectId);
+  let project;
+  try {
+    project = await findGithubProject(context, input.projectId);
+  } catch (error) {
+    return { kind: "error", message: projectDiscoveryMessage(error) };
+  }
   if (!project) {
     return { kind: "error", message: "That project is not a GitHub remote." };
   }
@@ -107,7 +122,12 @@ export async function handlePrAttention(
   const status = await getGhStatus();
   if (status.kind !== "ok") return status;
 
-  const projects = await listVisibleProjects(context);
+  let projects;
+  try {
+    projects = await listVisibleProjects(context);
+  } catch (error) {
+    return { kind: "error", message: projectDiscoveryMessage(error) };
+  }
   const results = await Promise.all(
     projects.map((project) =>
       listRepoPullRequests({
@@ -153,6 +173,11 @@ function selectProjects<T extends { projectId: string }>(projects: T[], projectI
   if (!projectIds || projectIds.length === 0) return projects;
   const wanted = new Set(projectIds);
   return projects.filter((project) => wanted.has(project.projectId));
+}
+
+function projectDiscoveryMessage(error: unknown): string {
+  if (error instanceof ProjectDiscoveryUnavailableError) return error.message;
+  return "Could not discover Paseo projects.";
 }
 
 function githubListState(states: PullRequestState[]): "open" | "closed" | "merged" | "all" {

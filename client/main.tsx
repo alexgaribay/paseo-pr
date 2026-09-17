@@ -167,7 +167,7 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   });
   const projectsQuery = useQuery({
     queryKey: ["pr.projects"],
-    queryFn: async () => (await fetchProjects({})).projects,
+    queryFn: () => fetchProjects({}),
     refetchInterval: refreshMs,
   });
   const listQuery = useQuery({
@@ -285,7 +285,8 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
     };
   }, [layout.compact, theme]);
 
-  const projects = projectsQuery.data ?? [];
+  const projectsResult = projectsQuery.data;
+  const projects = projectsResult && "projects" in projectsResult ? projectsResult.projects : [];
   useEffect(() => {
     const available = new Set(projects.map((project) => project.projectId));
     setProjectIds((current) => {
@@ -377,7 +378,10 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   });
 
   const unavailable = statusQuery.data?.kind === "unavailable" ? statusQuery.data : null;
-  const listError = listResult?.kind === "unavailable" || listResult?.kind === "error" ? listResult : null;
+  const projectsError = projectsResult?.kind === "error" ? projectsResult : null;
+  const listError =
+    projectsError ??
+    (listResult?.kind === "unavailable" || listResult?.kind === "error" ? listResult : null);
   const listPending =
     waiting === "me"
       ? listed.length === 0 && attentionPrs.length === 0 && (listQuery.isLoading || attentionQuery.isLoading)
@@ -633,6 +637,13 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
           <Text style={styles.muted}>
             {projectsQuery.error instanceof Error ? projectsQuery.error.message : "The plugin failed to list registered projects."}
           </Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Retry loading GitHub projects" onPress={refetchAll} style={styles.actionQuiet}>
+            <Text style={styles.actionQuietLabel}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : projectsError ? (
+        <View style={styles.empty}>
+          <Text style={styles.danger}>{projectsError.message}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Retry loading GitHub projects" onPress={refetchAll} style={styles.actionQuiet}>
             <Text style={styles.actionQuietLabel}>Try again</Text>
           </Pressable>

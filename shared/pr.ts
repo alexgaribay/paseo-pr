@@ -114,9 +114,13 @@ export const viewPullRequestOutputSchema = z.discriminatedUnion("kind", [
   errorSchema,
 ]);
 
-export const listGithubProjectsOutputSchema = z.object({
-  projects: z.array(githubProjectSchema),
-});
+export const listGithubProjectsOutputSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("ok"),
+    projects: z.array(githubProjectSchema),
+  }),
+  errorSchema,
+]);
 
 export const attentionOutputSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -169,5 +173,6 @@ export type PullRequestState = z.infer<typeof pullRequestStateSchema>;
 export type PullRequestPersonFilter = z.infer<typeof pullRequestPersonFilterSchema>;
 export type ListPullRequestsInput = z.infer<typeof listPullRequestsInputSchema>;
 export type ListPullRequestsOutput = z.infer<typeof listPullRequestsOutputSchema>;
+export type ListGithubProjectsOutput = z.infer<typeof listGithubProjectsOutputSchema>;
 export type ViewPullRequestOutput = z.infer<typeof viewPullRequestOutputSchema>;
 export type AttentionOutput = z.infer<typeof attentionOutputSchema>;

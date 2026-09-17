@@ -9,6 +9,7 @@ export function ProjectExclusionPicker(props: {
   compact: boolean;
   projects: readonly GithubProject[];
   selectedProjectIds: readonly string[];
+  error?: string;
   onChange: (projectIds: string[]) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -45,6 +46,9 @@ export function ProjectExclusionPicker(props: {
     props.onChange(selected.filter((entry) => entry.projectId !== project.projectId).map((entry) => entry.projectId));
   }
 
+  if (props.error) {
+    return <Text style={styles.error}>{props.error}</Text>;
+  }
   if (props.projects.length === 0) {
     return <Text style={styles.muted}>No GitHub projects yet.</Text>;
   }
@@ -123,6 +127,7 @@ export function ProjectExclusionPicker(props: {
 
 function pickerStyles(theme: PluginTheme, compact: boolean) {
   return {
+    error: { color: theme.colors.statusDanger, fontSize: 12, lineHeight: 16 },
     root: { gap: 8, zIndex: 30 },
     muted: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
     pills: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 6 },

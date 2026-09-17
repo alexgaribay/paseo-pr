@@ -66,9 +66,11 @@ export function SettingsPanel(props: {
   });
   const projectsQuery = useQuery({
     queryKey: ["pr.projects", "settings"],
-    queryFn: async () => (await fetchProjects({ includeExcluded: true })).projects,
+    queryFn: () => fetchProjects({ includeExcluded: true }),
     staleTime: 60_000,
   });
+  const projectsResult = projectsQuery.data;
+  const projects = projectsResult && "projects" in projectsResult ? projectsResult.projects : [];
 
   useEffect(() => {
     const settings = settingsQuery.data;
@@ -172,7 +174,8 @@ export function SettingsPanel(props: {
         <ProjectExclusionPicker
           theme={props.theme}
           compact={props.compact}
-          projects={projectsQuery.data ?? []}
+          projects={projects}
+          error={projectsResult?.kind === "error" ? projectsResult.message : undefined}
           selectedProjectIds={excludedProjectIds}
           onChange={(projectIds) => {
             setExcludedProjectIds(projectIds);

@@ -47,7 +47,12 @@ export function startAssignmentAutomation(client: PluginClientContext): () => vo
               for (const pullRequest of candidates) seen.add(pullRequestWorkspaceKey(pullRequest));
               initialized = true;
             } else {
-              const projects = (await client.rpc(prProjects, {})).projects;
+              const projectsResult = await client.rpc(prProjects, {});
+              if (projectsResult.kind !== "ok") {
+                console.warn(`[paseo-pr] Automation skipped: ${projectsResult.message}`);
+                return;
+              }
+              const projects = projectsResult.projects;
               for (const pullRequest of candidates) {
                 const key = pullRequestWorkspaceKey(pullRequest);
                 if (seen.has(key)) continue;
