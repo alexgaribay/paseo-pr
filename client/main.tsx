@@ -78,7 +78,9 @@ function waitingInboxRows(input: {
   const personFiltersActive = input.author === "me" || input.assignee === "me";
   const source =
     personFiltersActive || input.attention.length === 0
-      ? input.listed.filter((pullRequest) => pullRequest.waitingOnViewer || pullRequest.needsRereview)
+      ? input.listed.filter(
+          (pullRequest) => !pullRequest.isDraft && (pullRequest.waitingOnViewer || pullRequest.needsRereview),
+        )
       : input.attention;
   const wantedProjects = new Set(input.projectIds);
   const filterStates = input.states.length > 0 && input.states.length < 3;

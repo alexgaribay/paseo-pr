@@ -152,6 +152,7 @@ export async function handlePrAttention(
       continue;
     }
     for (const pullRequest of result.pullRequests) {
+      if (pullRequest.isDraft) continue;
       if (!pullRequest.waitingOnViewer && !pullRequest.needsRereview) continue;
       const key = `${pullRequest.owner}/${pullRequest.repo}#${pullRequest.number}`;
       if (seen.has(key)) continue;
