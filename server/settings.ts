@@ -6,6 +6,7 @@ import {
   DEFAULT_ASSIGNMENT_PROMPT,
   DEFAULT_REFRESH_INTERVAL_MINUTES,
   isRefreshIntervalMinutes,
+  type AssignmentAutomation,
   type PluginSettingsOutput,
   type RefreshIntervalMinutes,
 } from "../shared/settings";
@@ -21,11 +22,7 @@ interface StoredSettings {
   refreshIntervalMinutes: RefreshIntervalMinutes;
   excludedProjectIds: string[];
   workspaceLabelNames: string[];
-  assignmentAutomation: {
-    enabled: boolean;
-    profileId: string;
-    prompt: string;
-  };
+  assignmentAutomation: AssignmentAutomation;
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
@@ -33,7 +30,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
   excludedProjectIds: [],
   workspaceLabelNames: [],
-  assignmentAutomation: { enabled: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
+  assignmentAutomation: { enabled: false, includeDrafts: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT, ownerHostId: "" },
 };
 
 let memory: StoredSettings | null = null;
@@ -54,6 +51,22 @@ export async function loadStoredWorkspaceLabelNames(): Promise<string[]> {
   return (await loadStoredSettings()).workspaceLabelNames;
 }
 
+export async function loadStoredAssignmentAutomation(): Promise<AssignmentAutomation> {
+  return (await loadStoredSettings()).assignmentAutomation;
+}
+
+/** Stable identity of this daemon install: PASEO_HOME/server-id (default ~/.paseo/server-id). */
+export async function loadAutomationHostId(): Promise<string | null> {
+  const home = process.env.PASEO_HOME?.trim() || join(homedir(), ".paseo");
+  try {
+    const serverId = (await readFile(join(home, "server-id"), "utf8")).trim();
+    return serverId.length > 0 ? serverId : null;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 export async function handleSettingsGet(): Promise<PluginSettingsOutput> {
   const stored = await loadStoredSettings();
   return await toSettingsOutput({ kind: "ok", stored });
@@ -65,6 +78,7 @@ export async function handleSettingsSet(input: {
   excludedProjectIds: string[];
   workspaceLabelNames: string[];
   assignmentAutomation: StoredSettings["assignmentAutomation"];
+  processCurrent?: boolean;
 }): Promise<PluginSettingsOutput> {
   const ghPath = input.ghPath.trim();
   if (ghPath.length > 0) {
@@ -101,8 +115,10 @@ export async function handleSettingsSet(input: {
     workspaceLabelNames,
     assignmentAutomation: {
       enabled: input.assignmentAutomation.enabled,
+      includeDrafts: input.assignmentAutomation.includeDrafts,
       profileId,
       prompt,
+      ownerHostId: input.assignmentAutomation.ownerHostId.trim(),
     },
   };
   await writeStoredSettings(next);
@@ -156,6 +172,7 @@ function parseStoredSettings(value: unknown): StoredSettings {
       assignmentAutomation && typeof assignmentAutomation === "object"
         ? {
             enabled: "enabled" in assignmentAutomation && assignmentAutomation.enabled === true,
+            includeDrafts: "includeDrafts" in assignmentAutomation && assignmentAutomation.includeDrafts === true,
             profileId: "profileId" in assignmentAutomation && typeof assignmentAutomation.profileId === "string"
               ? assignmentAutomation.profileId
               : "",
@@ -165,8 +182,12 @@ function parseStoredSettings(value: unknown): StoredSettings {
               assignmentAutomation.prompt.trim().length > 0
                 ? assignmentAutomation.prompt
                 : DEFAULT_ASSIGNMENT_PROMPT,
+            ownerHostId:
+              "ownerHostId" in assignmentAutomation && typeof assignmentAutomation.ownerHostId === "string"
+                ? assignmentAutomation.ownerHostId
+                : "",
           }
-        : { enabled: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
+        : { enabled: false, includeDrafts: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT, ownerHostId: "" },
   };
 }
 
@@ -178,6 +199,7 @@ async function toSettingsOutput(input: {
   const resolvedGhPath = await resolveExecutable(input.stored.ghPath.trim() || "gh");
   const workspaceLabels = await loadWorkspaceLabelCatalog();
   const workspaceLabelNames = persistableWorkspaceLabelNames(input.stored.workspaceLabelNames, workspaceLabels);
+  const automationHostId = await loadAutomationHostId();
   if (input.kind === "error") {
     return {
       kind: "error",
@@ -189,6 +211,7 @@ async function toSettingsOutput(input: {
       workspaceLabelNames,
       workspaceLabels,
       assignmentAutomation: input.stored.assignmentAutomation,
+      automationHostId,
     };
   }
   return {
@@ -200,6 +223,7 @@ async function toSettingsOutput(input: {
     workspaceLabelNames,
     workspaceLabels,
     assignmentAutomation: input.stored.assignmentAutomation,
+    automationHostId,
   };
 }
 

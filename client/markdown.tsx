@@ -227,7 +227,9 @@ function renderInlines(
         selectable
         style={ctx.styles.link}
         onPress={() => {
-          openHttpsUrl(href, ctx.host);
+          void openHttpsUrl(href, ctx.host).catch((error: unknown) => {
+            console.error("[paseo-pr] Could not open markdown link:", error);
+          });
         }}
       >
         {renderInlines(node.children, ctx)}

@@ -309,6 +309,7 @@ function mapPullRequest(input: {
     url: row.url,
     state: row.state.toLowerCase(),
     author,
+    authoredByViewer: input.viewer === null ? null : author.toLowerCase() === input.viewer.toLowerCase(),
     assignees,
     isDraft: row.isDraft === true,
     updatedAt: row.updatedAt,
@@ -469,18 +470,16 @@ function isWaitingOnViewer(input: {
   return input.author.toLowerCase() === viewer && input.reviewDecision === "CHANGES_REQUESTED";
 }
 
-let cachedViewerLogin: string | null | undefined;
+let cachedViewerLogin: string | undefined;
 
 async function viewerLogin(): Promise<string | null> {
   if (cachedViewerLogin !== undefined) return cachedViewerLogin;
   const result = await runCommand({ command: "gh", args: ["api", "user", "--jq", ".login"] });
-  if (result.code !== 0) {
-    cachedViewerLogin = null;
-    return null;
-  }
+  if (result.code !== 0) return null;
   const login = result.stdout.trim();
-  cachedViewerLogin = login.length > 0 ? login : null;
-  return cachedViewerLogin;
+  if (login.length === 0) return null;
+  cachedViewerLogin = login;
+  return login;
 }
 
 async function listPullLineComments(input: {

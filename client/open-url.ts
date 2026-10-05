@@ -1,15 +1,9 @@
-import { Linking } from "react-native";
+import { openExternalUrl } from "@getpaseo/plugin/client";
 
-export function openHttpsUrl(url: string, allowedHost: string): boolean {
+export async function openHttpsUrl(url: string, allowedHost: string): Promise<boolean> {
   const parsed = parseAllowedHttpsUrl(url, allowedHost);
   if (!parsed) return false;
-
-  if (typeof window !== "undefined" && typeof window.open === "function") {
-    window.open(parsed.toString(), "_blank", "noopener,noreferrer");
-    return true;
-  }
-
-  void Linking.openURL(parsed.toString());
+  await openExternalUrl(parsed.toString());
   return true;
 }
 

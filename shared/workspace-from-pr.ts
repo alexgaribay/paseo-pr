@@ -1,21 +1,40 @@
-import { usePaseo } from "@getpaseo/plugin/client";
-import type { PullRequest } from "../shared/pr";
+import type {
+  FetchWorkspacesRequestMessage,
+  FetchWorkspacesResponseMessage,
+  WorkspaceCreateRequest,
+  WorkspaceDescriptorPayload,
+} from "@getpaseo/protocol/messages";
+import type { PullRequest } from "./pr";
 
-type Paseo = ReturnType<typeof usePaseo>;
-type Workspace = Awaited<ReturnType<Paseo["workspaces"]["list"]>>["entries"][number];
+type Workspace = WorkspaceDescriptorPayload;
+
+interface WorkspaceListApi {
+  workspaces: {
+    list(input: Pick<FetchWorkspacesRequestMessage, "page">): Promise<
+      Pick<FetchWorkspacesResponseMessage["payload"], "entries" | "pageInfo">
+    >;
+  };
+}
+
+interface WorkspaceCreateApi {
+  workspaces: {
+    create(input: Omit<WorkspaceCreateRequest, "type" | "requestId" | "agent" | "subscribe">): Promise<{ id: string }>;
+  };
+}
 
 export function pullRequestWorkspaceKey(pullRequest: Pick<PullRequest, "projectId" | "number">): string {
   return `${pullRequest.projectId}:${pullRequest.number}`;
 }
 
 export async function createPullRequestWorkspace(input: {
-  paseo: Paseo;
+  paseo: WorkspaceCreateApi;
   rootPath: string;
   number: number;
   title: string;
+  idempotencyKey?: string;
   onCreated?: (workspaceId: string) => Promise<void>;
 }): Promise<{ workspaceId: string; labelsError: string | null }> {
-  const workspace = await input.paseo.workspaces.create({
+  const created = await input.paseo.workspaces.create({
     title: `#${input.number} ${input.title}`,
     source: {
       kind: "worktree",
@@ -27,17 +46,18 @@ export async function createPullRequestWorkspace(input: {
         number: input.number,
       },
     },
+    idempotencyKey: input.idempotencyKey,
   });
-  return await finishCreatedWorkspace(workspace.id, input.onCreated);
+  return await finishCreatedWorkspace(created.id, input.onCreated);
 }
 
 export async function createRepoWorkspace(input: {
-  paseo: Paseo;
+  paseo: WorkspaceCreateApi;
   rootPath: string;
   title: string;
   onCreated?: (workspaceId: string) => Promise<void>;
 }): Promise<{ workspaceId: string; labelsError: string | null }> {
-  const workspace = await input.paseo.workspaces.create({
+  const created = await input.paseo.workspaces.create({
     title: input.title,
     source: {
       kind: "worktree",
@@ -46,7 +66,7 @@ export async function createRepoWorkspace(input: {
       baseBranch: "origin/HEAD",
     },
   });
-  return await finishCreatedWorkspace(workspace.id, input.onCreated);
+  return await finishCreatedWorkspace(created.id, input.onCreated);
 }
 
 async function finishCreatedWorkspace(
@@ -66,7 +86,7 @@ async function finishCreatedWorkspace(
   }
 }
 
-export async function listActiveWorkspaces(paseo: Paseo): Promise<Workspace[]> {
+export async function listActiveWorkspaces(paseo: WorkspaceListApi): Promise<Workspace[]> {
   const entries: Workspace[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < 20; page += 1) {

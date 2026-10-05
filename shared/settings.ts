@@ -22,8 +22,10 @@ export const DEFAULT_ASSIGNMENT_PROMPT =
 
 export const assignmentAutomationSchema = z.object({
   enabled: z.boolean(),
+  includeDrafts: z.boolean(),
   profileId: z.string(),
   prompt: z.string(),
+  ownerHostId: z.string(),
 });
 
 export const pluginSettingsSchema = z.object({
@@ -34,6 +36,7 @@ export const pluginSettingsSchema = z.object({
   workspaceLabelNames: workspaceLabelNamesSchema,
   workspaceLabels: z.array(workspaceLabelDefinitionSchema),
   assignmentAutomation: assignmentAutomationSchema,
+  automationHostId: z.string().nullable(),
 });
 
 export const pluginSettingsOutputSchema = z.discriminatedUnion("kind", [
@@ -58,11 +61,13 @@ export const prSettingsSet = defineRpc({
     excludedProjectIds: z.array(z.string()),
     workspaceLabelNames: workspaceLabelNamesSchema,
     assignmentAutomation: assignmentAutomationSchema,
+    processCurrent: z.boolean().default(false),
   }),
   output: pluginSettingsOutputSchema,
 });
 
 export type RefreshIntervalMinutes = z.infer<typeof refreshIntervalMinutesSchema>;
+export type AssignmentAutomation = z.infer<typeof assignmentAutomationSchema>;
 export type PluginSettings = z.infer<typeof pluginSettingsSchema>;
 export type PluginSettingsOutput = z.infer<typeof pluginSettingsOutputSchema>;
 

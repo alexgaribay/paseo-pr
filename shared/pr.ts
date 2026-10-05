@@ -34,6 +34,7 @@ export const pullRequestSchema = z.object({
   url: z.string(),
   state: z.string(),
   author: z.string(),
+  authoredByViewer: z.boolean().nullable(),
   assignees: z.array(z.string()),
   isDraft: z.boolean(),
   updatedAt: z.string(),

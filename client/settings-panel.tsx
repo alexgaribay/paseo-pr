@@ -1,8 +1,8 @@
-import { usePaseo, useRpc } from "@getpaseo/plugin/client";
+import { useHosts, usePaseo, useRpc } from "@getpaseo/plugin/client";
 import { SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import {
@@ -11,18 +11,14 @@ import {
   prSettingsGet,
   prSettingsSet,
   refreshIntervalLabel,
+  type PluginSettings,
   type RefreshIntervalMinutes,
 } from "../shared/settings";
-import { wakeAssignmentAutomation } from "./automation-control";
 import { prProjects } from "../shared/pr";
 import { ProjectExclusionPicker } from "./project-exclusion-picker";
 import { WorkspaceLabelPicker } from "./workspace-label-picker";
 
-interface AssignmentAutomation {
-  enabled: boolean;
-  profileId: string;
-  prompt: string;
-}
+type AssignmentAutomation = PluginSettings["assignmentAutomation"];
 
 interface PickerOption {
   label: string;
@@ -37,6 +33,7 @@ export function SettingsPanel(props: {
 }) {
   const toast = useToast();
   const paseo = usePaseo();
+  const queryClient = useQueryClient();
   const fetchSettings = useRpc(prSettingsGet);
   const saveSettings = useRpc(prSettingsSet);
   const fetchProjects = useRpc(prProjects);
@@ -48,12 +45,16 @@ export function SettingsPanel(props: {
   const [excludedProjectIds, setExcludedProjectIds] = useState<string[]>([]);
   const [assignmentAutomation, setAssignmentAutomation] = useState<AssignmentAutomation>({
     enabled: false,
+    includeDrafts: false,
     profileId: "",
     prompt: "",
+    ownerHostId: "",
   });
   const [refreshOpen, setRefreshOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileSearch, setProfileSearch] = useState("");
+  const [hostOpen, setHostOpen] = useState(false);
+  const [hostSearch, setHostSearch] = useState("");
 
   const settingsQuery = useQuery({
     queryKey: ["pr.settings"],
@@ -84,10 +85,7 @@ export function SettingsPanel(props: {
 
   const styles = useMemo(() => panelStyles(props.theme, props.compact), [props.compact, props.theme]);
   const save = useMutation({
-    mutationFn: ({
-      processCurrent: _processCurrent,
-      ...input
-    }: {
+    mutationFn: (input: {
       ghPath: string;
       refreshIntervalMinutes: RefreshIntervalMinutes;
       excludedProjectIds: string[];
@@ -111,13 +109,12 @@ export function SettingsPanel(props: {
       setExcludedProjectIds(result.excludedProjectIds);
       setWorkspaceLabelNames(result.workspaceLabelNames);
       setAssignmentAutomation(result.assignmentAutomation);
-      wakeAssignmentAutomation({ processCurrent: input.processCurrent });
       if (input.ghPath.trim() !== (settingsQuery.data?.ghPath ?? "").trim()) {
         toast.show(result.resolvedGhPath ? `Using ${result.resolvedGhPath}` : "Saved GitHub CLI path.", {
           variant: "success",
         });
       }
-      void settingsQuery.refetch();
+      queryClient.setQueryData(["pr.settings"], result);
       props.onSaved?.();
     },
     onError: (error) => {
@@ -160,6 +157,29 @@ export function SettingsPanel(props: {
     }));
   const selectedProfile = profilesQuery.data?.find((profile) => profile.id === assignmentAutomation.profileId);
   const resolved = settingsQuery.data?.resolvedGhPath;
+  const hosts = useHosts();
+  const automationHostId = settingsQuery.data?.automationHostId ?? null;
+  const ownerHostId = assignmentAutomation.ownerHostId.trim();
+  const hostOptions: PickerOption[] = useMemo(() => {
+    const options: PickerOption[] = [{ label: "None — pause automatic reviews", value: "" }];
+    if (automationHostId && !hosts.some((host) => host.serverId === automationHostId)) {
+      options.push({ label: "This host", value: automationHostId });
+    }
+    for (const host of hosts) {
+      options.push({ label: host.label, value: host.serverId, description: host.status });
+    }
+    return options;
+  }, [automationHostId, hosts]);
+  const automationStatus =
+    !assignmentAutomation.enabled
+      ? "Automatic reviews disabled."
+      : ownerHostId.length === 0
+        ? "Paused: no review host selected."
+        : automationHostId === null
+          ? "Paused: this host's identity is unavailable."
+          : ownerHostId === automationHostId
+            ? "Active on this host: this host owns automatic reviews."
+            : "Paused on this host: the designated review host owns automatic reviews.";
 
   useEffect(() => {
     if (assignmentAutomation.profileId.trim().length > 0) return;
@@ -208,13 +228,18 @@ export function SettingsPanel(props: {
       <View style={styles.automationHeader}>
         <Text style={styles.heading}>Assigned PR automation</Text>
         <Text style={styles.muted}>
-          When enabled, start a labeled workspace and run the selected profile for current and future
-          assignments or review requests. Paseo notifies you when the agent completes.
+          When enabled, start a labeled workspace and run the selected profile for ready assignments or review
+          requests. Paseo notifies you when the agent completes.
         </Text>
+        <Text style={styles.automationStatus}>{automationStatus}</Text>
       </View>
       <SettingsSwitch
         label="Automatically run"
-        hint="Enabling this setting processes current assignments and review requests immediately."
+        hint={
+          assignmentAutomation.enabled && ownerHostId.length === 0
+            ? "Paused: legacy enabled configurations without a review host stay paused until one is chosen."
+            : "Enabling this setting processes current assignments and review requests immediately."
+        }
         value={assignmentAutomation.enabled}
         onValueChange={(enabled) => {
           if (enabled) {
@@ -224,10 +249,28 @@ export function SettingsPanel(props: {
               toast.error("Choose a profile and prompt before enabling automation.");
               return;
             }
+            if (ownerHostId.length === 0) {
+              toast.error("Choose a review host before enabling automation.");
+              return;
+            }
           }
           updateAutomation({ ...assignmentAutomation, enabled }, enabled && !assignmentAutomation.enabled);
         }}
       />
+      <SettingsSwitch
+        label="Include draft PRs"
+        hint="When enabled, draft PRs are eligible for automatic workspace and agent creation."
+        value={assignmentAutomation.includeDrafts}
+        onValueChange={(includeDrafts) => {
+          updateAutomation({ ...assignmentAutomation, includeDrafts });
+        }}
+      />
+      <SettingRow styles={styles} title="Review host" description="Choose the same designated review host on every installation. Only that host runs automatic reviews. Selecting an owner does not clear completed reviews." overlay>
+        <SearchablePicker theme={props.theme} styles={styles} value={assignmentAutomation.ownerHostId} options={hostOptions} open={hostOpen} query={hostSearch} disabled={hostOptions.length === 0} emptyLabel="Select a review host" searchPlaceholder="Search hosts" onOpenChange={setHostOpen} onQueryChange={setHostSearch} onChange={(hostId) => {
+          updateAutomation({ ...assignmentAutomation, ownerHostId: hostId });
+          setHostOpen(false);
+        }} />
+      </SettingRow>
       <SettingRow styles={styles} title="Agent profile" description={profilesQuery.isLoading ? "Loading your Paseo profiles…" : selectedProfile ? "The profile supplies the provider, model, thinking level, and access mode." : "Choose an existing profile that includes a model."} overlay>
         <SearchablePicker theme={props.theme} styles={styles} value={assignmentAutomation.profileId} options={profileOptions} open={profileOpen} query={profileSearch} disabled={profilesQuery.isLoading || profileOptions.length === 0} emptyLabel="Select a profile" searchPlaceholder="Search profiles" onOpenChange={setProfileOpen} onQueryChange={setProfileSearch} onChange={(profileId) => {
           updateAutomation({ ...assignmentAutomation, profileId });
@@ -293,6 +336,7 @@ function panelStyles(theme: PluginTheme, compact: boolean) {
     copy: compact ? { gap: 4 } : { gap: 4, flexGrow: 2, flexShrink: 1, flexBasis: 0 },
     control: compact ? { gap: 8 } : { gap: 8, flexGrow: 1, flexShrink: 1, flexBasis: 0 },
     automationHeader: { gap: 4, paddingTop: compact ? 4 : 16, paddingBottom: compact ? 2 : 8 },
+    automationStatus: { color: theme.colors.foreground, fontSize: 12, lineHeight: 16, fontWeight: "500" as const },
     heading: { color: theme.colors.foreground, fontSize: 14, fontWeight: "500" as const }, muted: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
     input: { alignSelf: "stretch" as const, width: "100%" as const, minHeight: 36, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface2, color: theme.colors.foreground, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 },
     promptInput: { alignSelf: "stretch" as const, width: "100%" as const, minHeight: 128, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface2, color: theme.colors.foreground, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, lineHeight: 20 },

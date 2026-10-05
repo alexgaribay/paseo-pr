@@ -38,7 +38,7 @@ import {
   indexWorkspacesByPullRequest,
   listActiveWorkspaces,
   pullRequestWorkspaceKey,
-} from "./workspace-from-pr";
+} from "../shared/workspace-from-pr";
 
 type OpenFilter = "repository" | "status" | "author" | "assignee" | "waiting" | null;
 type Pane = "inbox" | "settings";
@@ -447,10 +447,14 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
                 <Pressable
                   accessibilityRole="link"
                   accessibilityLabel="View pull request on GitHub"
-                  onPress={() => {
-                    if (!openHttpsUrl(selectedPullRequest.url, selectedPullRequest.host)) {
+                  onPress={async () => {
+                    try {
+                      if (await openHttpsUrl(selectedPullRequest.url, selectedPullRequest.host)) return;
+                    } catch {
                       toast.error("Could not open that pull request on GitHub.");
+                      return;
                     }
+                    toast.error("Could not open that pull request on GitHub.");
                   }}
                   style={styles.actionQuiet}
                 >

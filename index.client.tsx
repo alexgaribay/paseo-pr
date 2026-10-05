@@ -1,17 +1,23 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
 import { MainSurface } from "./client/main";
 import { requestInboxFocus } from "./client/search-pr-request";
-import { startAssignmentAutomation } from "./client/assignment-automation";
+import { SettingsPanel } from "./client/settings-panel";
 
 export default function contribute(client: PluginClientContext) {
-  client.addSurface("main", MainSurface);
-  client.addSidebarItem({
+  const removeSurface = client.addSurface("main", MainSurface);
+  const removeSettings = client.addSettingsScreen({
+    id: "settings",
+    title: "Pull requests",
+    icon: "GitPullRequest",
+    Component: ({ theme, layout }) => <SettingsPanel theme={theme} compact={layout.compact} />,
+  });
+  const removeSidebar = client.addSidebarItem({
     id: "main",
     title: "Pull requests",
     icon: "GitPullRequest",
     surface: "main",
   });
-  client.addCommandCenterItem({
+  const removeCommand = client.addCommandCenterItem({
     id: "search-for-pr",
     title: "Search for PR",
     icon: "Search",
@@ -22,5 +28,10 @@ export default function contribute(client: PluginClientContext) {
       requestInboxFocus();
     },
   });
-  return startAssignmentAutomation(client);
+  return () => {
+    removeCommand();
+    removeSidebar();
+    removeSettings();
+    removeSurface();
+  };
 }
