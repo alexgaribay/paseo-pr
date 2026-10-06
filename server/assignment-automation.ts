@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
 import { z } from "zod";
 import { handlePrList, handlePrProjects } from "./pr";
-import { loadAutomationHostId, loadStoredAssignmentAutomation, loadStoredWorkspaceLabelNames } from "./settings";
+import { loadStoredAssignmentAutomation, loadStoredWorkspaceLabelNames } from "./settings";
 import { applyExistingWorkspaceLabels } from "./workspace-labels";
 import { createPullRequestWorkspace, findWorkspaceForPullRequest, listActiveWorkspaces } from "../shared/workspace-from-pr";
 import { listPullRequestsInputSchema, pullRequestSchema } from "../shared/pr";
@@ -56,8 +56,7 @@ export function createAssignmentAutomation() {
 
   const run = async (currentContext: PluginHandlerContext, processCurrent: boolean) => {
     const settings = await loadStoredAssignmentAutomation();
-    const hostId = await loadAutomationHostId();
-    if (stopped || !settings.enabled || !hostId || settings.ownerHostId !== hostId) return;
+    if (stopped || !settings.enabled) return;
     if (!settings.profileId.trim() || !settings.prompt.trim()) return;
 
     if (!state) {
@@ -131,7 +130,7 @@ export function createAssignmentAutomation() {
         // Persist the immutable intent before every attempt, including after a failed journal write.
         await persist();
         const latestSettings = await loadStoredAssignmentAutomation();
-        if (!latestSettings.enabled || latestSettings.ownerHostId !== hostId) return;
+        if (!latestSettings.enabled) return;
         if (!latestSettings.includeDrafts && pullRequest.isDraft) continue;
         await finishRun(key, entry, currentContext);
       } catch (error) {
@@ -157,8 +156,7 @@ export function createAssignmentAutomation() {
     if (labels.kind === "error") throw new Error(labels.message);
     if (stopped) return;
     const latestSettings = await loadStoredAssignmentAutomation();
-    const hostId = await loadAutomationHostId();
-    if (stopped || !latestSettings.enabled || !hostId || latestSettings.ownerHostId !== hostId) return;
+    if (stopped || !latestSettings.enabled) return;
     const agent = await currentContext.paseo.workspaces.ref(entry.workspaceId).agents.create({
       idempotencyKey: `paseo-pr:review:${key}`,
       config: entry.config,

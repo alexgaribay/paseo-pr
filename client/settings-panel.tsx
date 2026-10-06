@@ -1,4 +1,4 @@
-import { useHosts, usePaseo, useRpc } from "@getpaseo/plugin/client";
+import { usePaseo, useRpc } from "@getpaseo/plugin/client";
 import { SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
@@ -48,13 +48,10 @@ export function SettingsPanel(props: {
     includeDrafts: false,
     profileId: "",
     prompt: "",
-    ownerHostId: "",
   });
   const [refreshOpen, setRefreshOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileSearch, setProfileSearch] = useState("");
-  const [hostOpen, setHostOpen] = useState(false);
-  const [hostSearch, setHostSearch] = useState("");
 
   const settingsQuery = useQuery({
     queryKey: ["pr.settings"],
@@ -157,29 +154,9 @@ export function SettingsPanel(props: {
     }));
   const selectedProfile = profilesQuery.data?.find((profile) => profile.id === assignmentAutomation.profileId);
   const resolved = settingsQuery.data?.resolvedGhPath;
-  const hosts = useHosts();
-  const automationHostId = settingsQuery.data?.automationHostId ?? null;
-  const ownerHostId = assignmentAutomation.ownerHostId.trim();
-  const hostOptions: PickerOption[] = useMemo(() => {
-    const options: PickerOption[] = [{ label: "None — pause automatic reviews", value: "" }];
-    if (automationHostId && !hosts.some((host) => host.serverId === automationHostId)) {
-      options.push({ label: "This host", value: automationHostId });
-    }
-    for (const host of hosts) {
-      options.push({ label: host.label, value: host.serverId, description: host.status });
-    }
-    return options;
-  }, [automationHostId, hosts]);
-  const automationStatus =
-    !assignmentAutomation.enabled
-      ? "Automatic reviews disabled."
-      : ownerHostId.length === 0
-        ? "Paused: no review host selected."
-        : automationHostId === null
-          ? "Paused: this host's identity is unavailable."
-          : ownerHostId === automationHostId
-            ? "Active on this host: this host owns automatic reviews."
-            : "Paused on this host: the designated review host owns automatic reviews.";
+  const automationStatus = assignmentAutomation.enabled
+    ? "Runs on the daemon that manages these repositories."
+    : "Automatic reviews disabled.";
 
   useEffect(() => {
     if (assignmentAutomation.profileId.trim().length > 0) return;
@@ -235,11 +212,7 @@ export function SettingsPanel(props: {
       </View>
       <SettingsSwitch
         label="Automatically run"
-        hint={
-          assignmentAutomation.enabled && ownerHostId.length === 0
-            ? "Paused: legacy enabled configurations without a review host stay paused until one is chosen."
-            : "Enabling this setting processes current assignments and review requests immediately."
-        }
+        hint="Enabling this setting processes current assignments and review requests immediately."
         value={assignmentAutomation.enabled}
         onValueChange={(enabled) => {
           if (enabled) {
@@ -247,10 +220,6 @@ export function SettingsPanel(props: {
             const prompt = assignmentAutomation.prompt.trim();
             if (profileId.length === 0 || prompt.length === 0) {
               toast.error("Choose a profile and prompt before enabling automation.");
-              return;
-            }
-            if (ownerHostId.length === 0) {
-              toast.error("Choose a review host before enabling automation.");
               return;
             }
           }
@@ -265,12 +234,6 @@ export function SettingsPanel(props: {
           updateAutomation({ ...assignmentAutomation, includeDrafts });
         }}
       />
-      <SettingRow styles={styles} title="Review host" description="Choose the same designated review host on every installation. Only that host runs automatic reviews. Selecting an owner does not clear completed reviews." overlay>
-        <SearchablePicker theme={props.theme} styles={styles} value={assignmentAutomation.ownerHostId} options={hostOptions} open={hostOpen} query={hostSearch} disabled={hostOptions.length === 0} emptyLabel="Select a review host" searchPlaceholder="Search hosts" onOpenChange={setHostOpen} onQueryChange={setHostSearch} onChange={(hostId) => {
-          updateAutomation({ ...assignmentAutomation, ownerHostId: hostId });
-          setHostOpen(false);
-        }} />
-      </SettingRow>
       <SettingRow styles={styles} title="Agent profile" description={profilesQuery.isLoading ? "Loading your Paseo profiles…" : selectedProfile ? "The profile supplies the provider, model, thinking level, and access mode." : "Choose an existing profile that includes a model."} overlay>
         <SearchablePicker theme={props.theme} styles={styles} value={assignmentAutomation.profileId} options={profileOptions} open={profileOpen} query={profileSearch} disabled={profilesQuery.isLoading || profileOptions.length === 0} emptyLabel="Select a profile" searchPlaceholder="Search profiles" onOpenChange={setProfileOpen} onQueryChange={setProfileSearch} onChange={(profileId) => {
           updateAutomation({ ...assignmentAutomation, profileId });

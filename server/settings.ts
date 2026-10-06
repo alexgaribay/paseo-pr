@@ -30,7 +30,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
   excludedProjectIds: [],
   workspaceLabelNames: [],
-  assignmentAutomation: { enabled: false, includeDrafts: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT, ownerHostId: "" },
+  assignmentAutomation: { enabled: false, includeDrafts: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
 };
 
 let memory: StoredSettings | null = null;
@@ -53,18 +53,6 @@ export async function loadStoredWorkspaceLabelNames(): Promise<string[]> {
 
 export async function loadStoredAssignmentAutomation(): Promise<AssignmentAutomation> {
   return (await loadStoredSettings()).assignmentAutomation;
-}
-
-/** Stable identity of this daemon install: PASEO_HOME/server-id (default ~/.paseo/server-id). */
-export async function loadAutomationHostId(): Promise<string | null> {
-  const home = process.env.PASEO_HOME?.trim() || join(homedir(), ".paseo");
-  try {
-    const serverId = (await readFile(join(home, "server-id"), "utf8")).trim();
-    return serverId.length > 0 ? serverId : null;
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return null;
-    throw error;
-  }
 }
 
 export async function handleSettingsGet(): Promise<PluginSettingsOutput> {
@@ -118,7 +106,6 @@ export async function handleSettingsSet(input: {
       includeDrafts: input.assignmentAutomation.includeDrafts,
       profileId,
       prompt,
-      ownerHostId: input.assignmentAutomation.ownerHostId.trim(),
     },
   };
   await writeStoredSettings(next);
@@ -182,12 +169,8 @@ function parseStoredSettings(value: unknown): StoredSettings {
               assignmentAutomation.prompt.trim().length > 0
                 ? assignmentAutomation.prompt
                 : DEFAULT_ASSIGNMENT_PROMPT,
-            ownerHostId:
-              "ownerHostId" in assignmentAutomation && typeof assignmentAutomation.ownerHostId === "string"
-                ? assignmentAutomation.ownerHostId
-                : "",
           }
-        : { enabled: false, includeDrafts: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT, ownerHostId: "" },
+        : { enabled: false, includeDrafts: false, profileId: "", prompt: DEFAULT_ASSIGNMENT_PROMPT },
   };
 }
 
@@ -199,7 +182,6 @@ async function toSettingsOutput(input: {
   const resolvedGhPath = await resolveExecutable(input.stored.ghPath.trim() || "gh");
   const workspaceLabels = await loadWorkspaceLabelCatalog();
   const workspaceLabelNames = persistableWorkspaceLabelNames(input.stored.workspaceLabelNames, workspaceLabels);
-  const automationHostId = await loadAutomationHostId();
   if (input.kind === "error") {
     return {
       kind: "error",
@@ -211,7 +193,6 @@ async function toSettingsOutput(input: {
       workspaceLabelNames,
       workspaceLabels,
       assignmentAutomation: input.stored.assignmentAutomation,
-      automationHostId,
     };
   }
   return {
@@ -223,7 +204,6 @@ async function toSettingsOutput(input: {
     workspaceLabelNames,
     workspaceLabels,
     assignmentAutomation: input.stored.assignmentAutomation,
-    automationHostId,
   };
 }
 

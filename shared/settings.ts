@@ -25,7 +25,6 @@ export const assignmentAutomationSchema = z.object({
   includeDrafts: z.boolean(),
   profileId: z.string(),
   prompt: z.string(),
-  ownerHostId: z.string(),
 });
 
 export const pluginSettingsSchema = z.object({
@@ -36,7 +35,6 @@ export const pluginSettingsSchema = z.object({
   workspaceLabelNames: workspaceLabelNamesSchema,
   workspaceLabels: z.array(workspaceLabelDefinitionSchema),
   assignmentAutomation: assignmentAutomationSchema,
-  automationHostId: z.string().nullable(),
 });
 
 export const pluginSettingsOutputSchema = z.discriminatedUnion("kind", [
