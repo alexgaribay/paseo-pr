@@ -1,24 +1,45 @@
-import type {
-  FetchWorkspacesRequestMessage,
-  FetchWorkspacesResponseMessage,
-  WorkspaceCreateRequest,
-  WorkspaceDescriptorPayload,
-} from "@getpaseo/protocol/messages";
 import type { PullRequest } from "./pr";
 
-type Workspace = WorkspaceDescriptorPayload;
+interface Workspace {
+  id: string;
+  projectId: string;
+  name: string;
+  title?: string | null;
+  archivingAt?: string | null;
+  activityAt?: string | null;
+  githubRuntime?: {
+    pullRequest?: {
+      number?: number | null;
+      repoOwner?: string | null;
+      repoName?: string | null;
+    } | null;
+  } | null;
+  gitRuntime?: { currentBranch?: string | null } | null;
+}
 
 interface WorkspaceListApi {
   workspaces: {
-    list(input: Pick<FetchWorkspacesRequestMessage, "page">): Promise<
-      Pick<FetchWorkspacesResponseMessage["payload"], "entries" | "pageInfo">
-    >;
+    list(input: { page: { limit: number; cursor?: string } }): Promise<{
+      entries: Workspace[];
+      pageInfo: { hasMore: boolean; nextCursor?: string | null };
+    }>;
   };
 }
 
 interface WorkspaceCreateApi {
   workspaces: {
-    create(input: Omit<WorkspaceCreateRequest, "type" | "requestId" | "agent" | "subscribe">): Promise<{ id: string }>;
+    create(input: {
+      title: string;
+      idempotencyKey?: string;
+      source:
+        | {
+            kind: "worktree";
+            cwd: string;
+            action: "checkout";
+            checkoutSource: { kind: "change_request"; forge: "github"; number: number };
+          }
+        | { kind: "worktree"; cwd: string; action: "branch-off"; baseBranch: string };
+    }): Promise<{ id: string }>;
   };
 }
 
