@@ -1,5 +1,5 @@
 {
   "id": "paseo-pr",
   "description": "Review GitHub pull requests and create isolated review workspaces.",
-  "requirements": { "paseo": ">=0.10.3" }
+  "requirements": { "paseo": ">=0.12.0" }
 }

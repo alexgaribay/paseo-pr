@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -17,16 +18,24 @@ const runSchema = z.discriminatedUnion("kind", [
     pullRequest: pullRequestSchema,
     rootPath: z.string(),
     workspaceId: z.string().nullable(),
+    agentId: z.string().nullable().default(null),
+    messageId: z.string().nullable().default(null),
+    reviewedHeads: z.array(z.string()).default([]),
     config: z.object({
       provider: z.string(),
       modeId: z.string().optional(),
       thinkingOptionId: z.string().optional(),
       featureValues: z.record(z.string(), z.unknown()).optional(),
-    }),
+    }).nullable().default(null),
     prompt: z.string(),
     labels: z.array(z.string()),
   }),
-  z.object({ kind: z.literal("completed"), workspaceId: z.string(), agentId: z.string() }),
+  z.object({
+    kind: z.literal("completed"),
+    workspaceId: z.string(),
+    agentId: z.string(),
+    reviewedHeads: z.array(z.string()).default([]),
+  }),
 ]);
 const stateSchema = z.object({
   initialized: z.boolean(),
@@ -100,28 +109,32 @@ export function createAssignmentAutomation() {
     const baseline = new Set(state.baseline);
     for (const [key, pullRequest] of candidates) {
       if (stopped) return;
-      if (baseline.has(key) || state.runs[key]?.kind === "completed") continue;
+      if (baseline.has(key)) continue;
       const project = projects.projects.find((entry) => entry.projectId === pullRequest.projectId);
       if (!project) continue;
       try {
         let entry = state.runs[key];
-        if (!entry) {
-          const { config } = await currentContext.paseo.config.get();
-          const profile = config.agentProfiles?.find((candidate) => candidate.id === settings.profileId);
-          if (!profile?.model) throw new Error("The automatic review profile is unavailable or has no model.");
-          const existing = findWorkspaceForPullRequest(await listActiveWorkspaces(currentContext.paseo), pullRequest);
+        const previous = entry?.kind === "completed" ? entry : null;
+        if (previous && (!pullRequest.needsRereview || !pullRequest.headRefOid || previous.reviewedHeads.includes(pullRequest.headRefOid))) continue;
+        if (!entry || previous) {
+          const existing = previous ? null : findWorkspaceForPullRequest(await listActiveWorkspaces(currentContext.paseo), pullRequest);
           entry = {
             kind: "pending",
             pullRequest,
             rootPath: project.rootPath,
-            workspaceId: existing?.id ?? null,
-            config: {
-              provider: `${profile.provider}/${profile.model}`,
-              ...(profile.modeId ? { modeId: profile.modeId } : {}),
-              ...(profile.thinkingOptionId ? { thinkingOptionId: profile.thinkingOptionId } : {}),
-              ...(profile.featureValues ? { featureValues: profile.featureValues } : {}),
-            },
-            prompt: settings.prompt,
+            workspaceId: previous?.workspaceId ?? existing?.id ?? null,
+            agentId: previous?.agentId ?? null,
+            messageId: previous ? randomUUID() : null,
+            reviewedHeads: previous?.reviewedHeads ?? [],
+            config: null,
+            prompt: previous
+              ? [
+                  `Re-review ${pullRequest.url}. New PR head: ${pullRequest.headRefOid}.`,
+                  "Use the earlier review and conversation in this thread as context, or consult the PR's review history if that context is unavailable. Fetch the PR's latest commits and safely update the checkout without discarding local changes.",
+                  "Focus on changes since your previous review, verify whether earlier findings were addressed, and flag new regressions. Summarize resolved and outstanding issues and your updated recommendation.",
+                  `Review instructions: ${settings.prompt}`,
+                ].join("\n\n")
+              : settings.prompt,
             labels: await loadStoredWorkspaceLabelNames(),
           };
           state.runs[key] = entry;
@@ -140,33 +153,74 @@ export function createAssignmentAutomation() {
   };
 
   const finishRun = async (key: string, entry: PendingRun, currentContext: PluginHandlerContext) => {
-    if (entry.workspaceId === null) {
-      const created = await createPullRequestWorkspace({
-        paseo: currentContext.paseo,
-        rootPath: entry.rootPath,
-        number: entry.pullRequest.number,
-        title: entry.pullRequest.title,
-        idempotencyKey: `paseo-pr:workspace:${key}`,
-      });
-      entry.workspaceId = created.workspaceId;
-      await persist();
-    }
-    if (stopped) return;
-    const labels = await applyExistingWorkspaceLabels({ workspaceId: entry.workspaceId, names: entry.labels });
-    if (labels.kind === "error") throw new Error(labels.message);
-    if (stopped) return;
     const latestSettings = await loadStoredAssignmentAutomation();
     if (stopped || !latestSettings.enabled) return;
-    const agent = await currentContext.paseo.workspaces.ref(entry.workspaceId).agents.create({
-      idempotencyKey: `paseo-pr:review:${key}`,
-      config: entry.config,
-      prompt: entry.prompt,
-      title: `PR #${entry.pullRequest.number}: ${entry.pullRequest.title}`,
-    });
+    let agentId = entry.agentId;
+    if (agentId !== null) {
+      const agent = currentContext.paseo.agents.ref(agentId);
+      const snapshot = await agent.refresh();
+      const workspaceAvailable = snapshot?.agent.archivedAt
+        ? (await listActiveWorkspaces(currentContext.paseo)).some((workspace) => workspace.id === entry.workspaceId)
+        : true;
+      if (snapshot && workspaceAvailable) {
+        if (snapshot.agent.status === "running" || snapshot.agent.status === "initializing" || snapshot.agent.activeTurn || snapshot.agent.pendingPermissions.length > 0) return;
+        if (!entry.messageId) throw new Error("Re-review message ID is unavailable.");
+        if (stopped || !(await loadStoredAssignmentAutomation()).enabled) return;
+        await agent.send(entry.prompt, { messageId: entry.messageId, activeTurnBehavior: "steer" });
+      } else {
+        entry.agentId = null;
+        const existing = findWorkspaceForPullRequest(await listActiveWorkspaces(currentContext.paseo), entry.pullRequest);
+        entry.workspaceId = existing?.id ?? null;
+        await persist();
+        agentId = null;
+      }
+    }
+    if (agentId === null) {
+      if (entry.workspaceId === null) {
+        const created = await createPullRequestWorkspace({
+          paseo: currentContext.paseo,
+          rootPath: entry.rootPath,
+          number: entry.pullRequest.number,
+          title: entry.pullRequest.title,
+          idempotencyKey: `paseo-pr:workspace:${key}${entry.messageId ? `:${entry.messageId}` : ""}`,
+        });
+        entry.workspaceId = created.workspaceId;
+        await persist();
+      }
+      if (stopped) return;
+      const labels = await applyExistingWorkspaceLabels({ workspaceId: entry.workspaceId, names: entry.labels });
+      if (labels.kind === "error") throw new Error(labels.message);
+      if (stopped) return;
+      if (!entry.config) {
+        const { config } = await currentContext.paseo.config.get();
+        const profile = config.agentProfiles?.find((candidate) => candidate.id === latestSettings.profileId);
+        if (!profile?.model) throw new Error("The automatic review profile is unavailable or has no model.");
+        entry.config = {
+          provider: `${profile.provider}/${profile.model}`,
+          ...(profile.modeId ? { modeId: profile.modeId } : {}),
+          ...(profile.thinkingOptionId ? { thinkingOptionId: profile.thinkingOptionId } : {}),
+          ...(profile.featureValues ? { featureValues: profile.featureValues } : {}),
+        };
+        await persist();
+      }
+      if (stopped || !(await loadStoredAssignmentAutomation()).enabled) return;
+      const agent = await currentContext.paseo.workspaces.ref(entry.workspaceId).agents.create({
+        idempotencyKey: `paseo-pr:review:${key}${entry.messageId ? `:${entry.messageId}` : ""}`,
+        clientMessageId: entry.messageId ?? undefined,
+        config: entry.config,
+        prompt: entry.prompt,
+        title: `PR #${entry.pullRequest.number}: ${entry.pullRequest.title}`,
+      });
+      agentId = agent.id;
+    }
     if (!state) throw new Error("Automatic review state is unavailable.");
-    state.runs[key] = { kind: "completed", workspaceId: entry.workspaceId, agentId: agent.id };
+    if (entry.workspaceId === null) throw new Error("Automatic review workspace is unavailable.");
+    const reviewedHeads = entry.pullRequest.headRefOid
+      ? [...entry.reviewedHeads, entry.pullRequest.headRefOid]
+      : entry.reviewedHeads;
+    state.runs[key] = { kind: "completed", workspaceId: entry.workspaceId, agentId, reviewedHeads };
     await persist();
-    console.info(`[paseo-pr] Started automatic review ${key}: ${agent.id}`);
+    console.info(`[paseo-pr] ${entry.messageId ? "Started re-review" : "Started automatic review"} ${key}: ${agentId}`);
   };
 
   const wake = (nextContext: PluginHandlerContext, processCurrent = false): Promise<void> => {

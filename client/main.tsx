@@ -1,4 +1,4 @@
-import { usePaseo, useRpc, type PluginSurfaceProps } from "@getpaseo/plugin/client";
+import { usePaseo, useRpc, type PluginScreenProps } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -26,11 +26,6 @@ import {
 } from "../shared/settings";
 import { SettingsPanel } from "./settings-panel";
 import { prWorkspaceLabelsApply } from "../shared/workspace-labels";
-import {
-  ensureSidebarBadgePolling,
-  setSidebarBadgePollInterval,
-  setSidebarBadgeTheme,
-} from "./sidebar-badge";
 import {
   createPullRequestWorkspace,
   createRepoWorkspace,
@@ -93,7 +88,7 @@ function waitingInboxRows(input: {
   });
 }
 
-export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
+export function MainSurface({ theme, layout, navigation }: PluginScreenProps) {
   const paseo = usePaseo();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -133,19 +128,6 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
     });
     return () => cancelAnimationFrame(frame);
   }, [pane, searchFocusToken]);
-  useEffect(() => {
-    setSidebarBadgeTheme({
-      foreground: theme.colors.foreground,
-      background: theme.colors.surface2,
-      border: theme.colors.border,
-    });
-  }, [theme.colors.border, theme.colors.foreground, theme.colors.surface2]);
-  useEffect(() => {
-    return ensureSidebarBadgePolling(async () => {
-      const result = await fetchAttention({});
-      return result.kind === "ok" ? result.count : 0;
-    });
-  }, [fetchAttention]);
 
   const settingsQuery = useQuery({
     queryKey: ["pr.settings"],
@@ -154,9 +136,6 @@ export function MainSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const refreshMinutes = settingsQuery.data?.refreshIntervalMinutes ?? DEFAULT_REFRESH_INTERVAL_MINUTES;
   const refreshMs = refreshIntervalMs(refreshMinutes);
 
-  useEffect(() => {
-    setSidebarBadgePollInterval(refreshMs);
-  }, [refreshMs]);
   useEffect(() => {
     return paseo.workspaces.subscribe(() => {
       void queryClient.invalidateQueries({ queryKey: ["pr.workspaces"] });

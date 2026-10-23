@@ -18,6 +18,7 @@ const GH_JSON_FIELDS = [
   "reviewDecision",
   "reviewRequests",
   "headRefName",
+  "headRefOid",
 ] as const;
 
 const GH_DETAIL_JSON_FIELDS = [
@@ -53,6 +54,7 @@ interface GhPullRequestJson {
   reviewDecision: unknown;
   reviewRequests: unknown;
   headRefName: unknown;
+  headRefOid: unknown;
 }
 
 export async function getGhStatus(): Promise<GhStatus> {
@@ -315,6 +317,7 @@ function mapPullRequest(input: {
     updatedAt: row.updatedAt,
     reviewDecision,
     headRefName: typeof row.headRefName === "string" ? row.headRefName : null,
+    headRefOid: readOptionalString(row.headRefOid),
     waitingOnViewer: isWaitingOnViewer({
       viewer: input.viewer,
       author,
@@ -377,10 +380,17 @@ async function enrichRereviewStatus(input: {
   if (!repository || typeof repository !== "object") return input.pullRequests;
 
   const viewer = viewerLogin.toLowerCase();
-  return input.pullRequests.map((pullRequest, index) => ({
-    ...pullRequest,
-    needsRereview: needsRereview(Reflect.get(repository, `pr${index}`), viewer),
-  }));
+  return input.pullRequests.map((pullRequest, index) => {
+    const reviewStatus = Reflect.get(repository, `pr${index}`);
+    const headRefOid = reviewStatus && typeof reviewStatus === "object"
+      ? readOptionalString(Reflect.get(reviewStatus, "headRefOid"))
+      : null;
+    return {
+      ...pullRequest,
+      headRefOid: headRefOid ?? pullRequest.headRefOid,
+      needsRereview: needsRereview(reviewStatus, viewer),
+    };
+  });
 }
 
 export function needsRereview(value: unknown, viewer: string): boolean {
@@ -455,6 +465,7 @@ function toPullRequestJson(value: object): GhPullRequestJson | null {
     reviewDecision: Reflect.get(value, "reviewDecision"),
     reviewRequests: Reflect.get(value, "reviewRequests"),
     headRefName: Reflect.get(value, "headRefName"),
+    headRefOid: Reflect.get(value, "headRefOid"),
   };
 }
 

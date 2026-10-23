@@ -40,6 +40,7 @@ export const pullRequestSchema = z.object({
   updatedAt: z.string(),
   reviewDecision: z.string().nullable(),
   headRefName: z.string().nullable(),
+  headRefOid: z.string().nullable().default(null),
   waitingOnViewer: z.boolean(),
   needsRereview: z.boolean(),
 });
