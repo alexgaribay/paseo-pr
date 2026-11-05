@@ -1,4 +1,4 @@
-import type { PaseoWorkspace } from "@getpaseo/client";
+import type { PluginHandlerContext } from "@getpaseo/plugin/server";
 import { z } from "zod";
 import { ghRepoFlag } from "../shared/github-remote";
 import { findWorkspaceForPullRequest } from "../shared/workspace-from-pr";
@@ -6,6 +6,8 @@ import type { ResolvedGithubProject } from "./projects";
 import { runCommand } from "./run-command";
 import type { ReviewObservation } from "./workspace-review-state";
 import { activeReviewRequests, reviewRequestEventSchema } from "./workspace-review-requests";
+
+type PaseoWorkspace = Awaited<ReturnType<PluginHandlerContext["paseo"]["workspaces"]["list"]>>["entries"][number];
 
 const pullRequestSchema = z.object({
   number: z.number().int().positive(),

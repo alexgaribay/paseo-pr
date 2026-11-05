@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import type { PaseoAgent, PaseoWorkspace } from "@getpaseo/client";
 import type { PluginHandlerContext, PluginServerContext } from "@getpaseo/plugin/server";
 import { z } from "zod";
 import { listActiveWorkspaces } from "../shared/workspace-from-pr";
@@ -12,6 +11,9 @@ import { loadStoredExcludedProjectIds } from "./settings";
 import { runCommand } from "./run-command";
 import { createWorkspacePullRequestObserver, type WorkspacePullRequestObserver } from "./workspace-review-github";
 import { completeReviewTurn, initialReviewState, reviewReasons, reviewToken, workspaceReviewStateSchema } from "./workspace-review-state";
+
+type PaseoWorkspace = Awaited<ReturnType<PluginHandlerContext["paseo"]["workspaces"]["list"]>>["entries"][number];
+type PaseoAgent = Awaited<ReturnType<PluginHandlerContext["paseo"]["agents"]["list"]>>["entries"][number]["agent"];
 
 const stateSchema = z.object({
   version: z.literal(1),
