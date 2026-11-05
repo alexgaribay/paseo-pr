@@ -12,7 +12,7 @@ On the target host, open **Settings → Plugins** and turn on **Enable plugins**
 
 Paseo compiles the plugin itself and supplies React, React Native, TanStack Query, Zod, and `@getpaseo/plugin` at runtime. Do not run `npm install` just to load the plugin; that is only for local typechecking.
 
-Paseo also validates type-only imports during compilation. Do not import `@getpaseo/client` or `@getpaseo/protocol` directly: those packages are not host-provided. Derive server API types from `PluginHandlerContext["paseo"]` in `@getpaseo/plugin/server`, or use structural workspace contracts. Installed plugin checkouts do not need local dependencies.
+Paseo also validates type-only imports during compilation. Do not import `@getpaseo/client` or `@getpaseo/protocol` directly: those packages are not host-provided. Use named structural workspace and agent contracts for the API fields the plugin consumes, and import handler context types from `@getpaseo/plugin/server`. Installed plugin checkouts do not need local dependencies.
 
 ### Directory
 

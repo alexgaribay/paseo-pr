@@ -2,7 +2,7 @@ import type { PullRequest } from "./pr";
 
 type PullRequestMatch = Pick<PullRequest, "projectId" | "number" | "owner" | "repo" | "headRefName">;
 
-interface Workspace {
+export interface Workspace {
   id: string;
   projectId: string;
   name: string;

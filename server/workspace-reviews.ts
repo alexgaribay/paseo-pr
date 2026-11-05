@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { PluginHandlerContext, PluginServerContext } from "@getpaseo/plugin/server";
 import { z } from "zod";
-import { listActiveWorkspaces } from "../shared/workspace-from-pr";
+import { listActiveWorkspaces, type Workspace } from "../shared/workspace-from-pr";
 import { prWorkspaceReviewAction, prWorkspaceReviews } from "../shared/workspace-reviews";
 import { listResolvedGithubProjects, type ResolvedGithubProject } from "./projects";
 import { loadStoredExcludedProjectIds } from "./settings";
@@ -12,8 +12,18 @@ import { runCommand } from "./run-command";
 import { createWorkspacePullRequestObserver, type WorkspacePullRequestObserver } from "./workspace-review-github";
 import { completeReviewTurn, initialReviewState, reviewReasons, reviewToken, workspaceReviewStateSchema } from "./workspace-review-state";
 
-type PaseoWorkspace = Awaited<ReturnType<PluginHandlerContext["paseo"]["workspaces"]["list"]>>["entries"][number];
-type PaseoAgent = Awaited<ReturnType<PluginHandlerContext["paseo"]["agents"]["list"]>>["entries"][number]["agent"];
+interface PaseoWorkspace extends Workspace {
+  workspaceDirectory: string;
+}
+
+interface PaseoAgent {
+  id: string;
+  workspaceId?: string;
+  title: string | null;
+  status: string;
+  activeTurn?: unknown;
+  pendingPermissions: readonly unknown[];
+}
 
 const stateSchema = z.object({
   version: z.literal(1),
