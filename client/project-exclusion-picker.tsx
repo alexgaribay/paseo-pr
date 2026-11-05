@@ -1,5 +1,5 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { Icon } from "@getpaseo/plugin/client/react-native";
+import { Icon } from "@getpaseo/plugin/client/ui";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { GithubProject } from "../shared/pr";

@@ -3,8 +3,10 @@ import { MainSurface } from "./client/main";
 import { requestInboxFocus } from "./client/search-pr-request";
 import { SettingsPanel } from "./client/settings-panel";
 import { PullRequestSidebar } from "./client/sidebar";
+import { registerWorkspaceReviewUi, WorkspaceReviewMonitor } from "./client/workspace-reviews";
 
 export default function contribute(client: PluginClientContext) {
+  const removeWorkspaceReviews = registerWorkspaceReviewUi(client);
   const removeScreen = client.addScreen({ id: "main", title: "Pull requests", Component: MainSurface });
   const removeSettings = client.addSettingsScreen({
     id: "settings",
@@ -15,7 +17,7 @@ export default function contribute(client: PluginClientContext) {
   const removeSidebar = client.addSidebarHeaderItem({
     id: "main",
     title: "Pull requests",
-    Component: PullRequestSidebar,
+    Component: (props) => <><WorkspaceReviewMonitor client={client} /><PullRequestSidebar {...props} /></>,
   });
   const removeCommand = client.addCommandCenterItem({
     id: "search-for-pr",
@@ -29,6 +31,7 @@ export default function contribute(client: PluginClientContext) {
     },
   });
   return () => {
+    removeWorkspaceReviews();
     removeCommand();
     removeSidebar();
     removeSettings();

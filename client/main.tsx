@@ -1,5 +1,5 @@
 import { usePaseo, useRpc, type PluginScreenProps } from "@getpaseo/plugin/client";
-import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
+import { Icon, useToast } from "@getpaseo/plugin/client/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";

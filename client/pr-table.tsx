@@ -1,4 +1,4 @@
-import { Icon } from "@getpaseo/plugin/client/react-native";
+import { Icon } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useMemo } from "react";
 import { FlatList, Pressable, Text, View, type GestureResponderEvent } from "react-native";

@@ -6,6 +6,7 @@ import { prSettingsGet, prSettingsSet } from "./shared/settings";
 import { applyExistingWorkspaceLabels } from "./server/workspace-labels";
 import { prWorkspaceLabelsApply } from "./shared/workspace-labels";
 import { createAssignmentAutomation } from "./server/assignment-automation";
+import { registerWorkspaceReviews } from "./server/workspace-reviews";
 
 export default function contribute(server: PluginServerContext) {
   const automation = createAssignmentAutomation();
@@ -32,10 +33,12 @@ export default function contribute(server: PluginServerContext) {
       names: await loadStoredWorkspaceLabelNames(),
     }),
   );
-  const removeWorkspaceHook = server.on("workspace.created", (_event, context) => {
+  const removeWorkspaceReviews = registerWorkspaceReviews(server);
+  const removeWorkspaceHook = server.addHook("workspace.create.after", async (_payload, context) => {
     void automation.wake(context);
   });
   return () => {
+    removeWorkspaceReviews();
     removeWorkspaceHook();
     automation.stop();
   };

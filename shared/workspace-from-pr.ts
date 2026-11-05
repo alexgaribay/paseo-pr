@@ -1,5 +1,7 @@
 import type { PullRequest } from "./pr";
 
+type PullRequestMatch = Pick<PullRequest, "projectId" | "number" | "owner" | "repo" | "headRefName">;
+
 interface Workspace {
   id: string;
   projectId: string;
@@ -17,10 +19,10 @@ interface Workspace {
   gitRuntime?: { currentBranch?: string | null } | null;
 }
 
-interface WorkspaceListApi {
+interface WorkspaceListApi<T extends Workspace> {
   workspaces: {
     list(input: { page: { limit: number; cursor?: string } }): Promise<{
-      entries: Workspace[];
+      entries: T[];
       pageInfo: { hasMore: boolean; nextCursor?: string | null };
     }>;
   };
@@ -107,8 +109,8 @@ async function finishCreatedWorkspace(
   }
 }
 
-export async function listActiveWorkspaces(paseo: WorkspaceListApi): Promise<Workspace[]> {
-  const entries: Workspace[] = [];
+export async function listActiveWorkspaces<T extends Workspace>(paseo: WorkspaceListApi<T>): Promise<T[]> {
+  const entries: T[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < 20; page += 1) {
     const result = await paseo.workspaces.list({
@@ -137,7 +139,7 @@ export function indexWorkspacesByPullRequest(
 
 export function findWorkspaceForPullRequest(
   workspaces: readonly Workspace[],
-  pullRequest: PullRequest,
+  pullRequest: PullRequestMatch,
 ): Workspace | null {
   let best: Workspace | null = null;
   let bestScore = 0;
@@ -156,7 +158,7 @@ function isActiveWorkspace(workspace: Workspace): boolean {
   return workspace.archivingAt == null;
 }
 
-function workspaceMatchScore(workspace: Workspace, pullRequest: PullRequest): number {
+function workspaceMatchScore(workspace: Workspace, pullRequest: PullRequestMatch): number {
   if (!sameProject(workspace, pullRequest)) return 0;
   const githubNumber = githubPullRequestNumber(workspace);
   if (githubNumber !== null) return githubNumber === pullRequest.number ? 3 : 0;
@@ -165,7 +167,7 @@ function workspaceMatchScore(workspace: Workspace, pullRequest: PullRequest): nu
   return 0;
 }
 
-function sameProject(workspace: Workspace, pullRequest: PullRequest): boolean {
+function sameProject(workspace: Workspace, pullRequest: PullRequestMatch): boolean {
   if (workspace.projectId === pullRequest.projectId) return true;
   const runtime = workspace.githubRuntime?.pullRequest;
   const owner = runtime?.repoOwner?.trim().toLowerCase();
@@ -185,7 +187,7 @@ function titleLooksLikePullRequest(title: string, number: number): boolean {
   return title === prefix || title.startsWith(`${prefix} `);
 }
 
-function branchLooksLikePullRequest(workspace: Workspace, pullRequest: PullRequest): boolean {
+function branchLooksLikePullRequest(workspace: Workspace, pullRequest: PullRequestMatch): boolean {
   const branch = workspace.gitRuntime?.currentBranch?.trim();
   if (!branch) return false;
   if (branch === `pr/${pullRequest.number}`) return true;

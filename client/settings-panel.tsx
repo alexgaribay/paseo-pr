@@ -1,7 +1,7 @@
 import { usePaseo, useRpc } from "@getpaseo/plugin/client";
 import { SettingsSwitch } from "@getpaseo/plugin/client/ui";
 import type { PluginTheme } from "@getpaseo/plugin";
-import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
+import { Icon, useToast } from "@getpaseo/plugin/client/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
