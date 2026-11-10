@@ -36,7 +36,7 @@ export function WorkspaceReviewMonitor({ client }: { client: PluginClientContext
   const status = query.isError || query.failureCount > 0 ? undefined : query.data;
   useEffect(() => {
     const registrations = (status?.reviews ?? []).map((review) => client.addHeaderButton({
-      id: `pr-review-${review.workspaceId}`,
+      id: "pr-review",
       workspaceId: review.workspaceId,
       button: {
         title: `PR #${review.number} ${review.reasons.includes("head_changed") ? "has updated code" : "has a new review request"}. Fetch safely and re-review.`,
@@ -46,7 +46,7 @@ export function WorkspaceReviewMonitor({ client }: { client: PluginClientContext
     }));
     for (const approved of status?.approvedWorkspaces ?? []) {
       registrations.push(client.addHeaderButton({
-        id: `pr-approved-${approved.workspaceId}`,
+        id: "pr-approved",
         workspaceId: approved.workspaceId,
         button: {
           title: `PR #${approved.number} is approved`,
