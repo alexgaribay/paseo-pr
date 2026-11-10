@@ -2,7 +2,7 @@
 
 Paseo plugin that lists GitHub pull requests for registered projects and opens isolated workspaces from them.
 
-Requires **Paseo 0.15.0 or newer on both the daemon and connected app**; the compatibility requirement has no upper version bound. Development SDK dependencies are pinned to **0.15.2**. Also requires the [GitHub CLI](https://cli.github.com/) (`gh`) on the **daemon** machine, authenticated with `gh auth login`. The plugin looks for `gh` on the process PATH, then Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), `~/.local/bin`, and the login shell PATH so GUI-launched Paseo still finds it. Configure it from **Settings → Plugins → Pull requests** or **Pull requests → Settings**. Preferences are stored under `$PASEO_HOME/plugin-data/paseo-pr/settings.json`.
+Requires **Paseo 0.15.0 or newer on both the daemon and connected app**; the compatibility requirement has no upper version bound. Development SDK dependencies are pinned to **0.15.4**. Also requires the [GitHub CLI](https://cli.github.com/) (`gh`) on the **daemon** machine, authenticated with `gh auth login`. The plugin looks for `gh` on the process PATH, then Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), `~/.local/bin`, and the login shell PATH so GUI-launched Paseo still finds it. Configure it from **Settings → Plugins → Pull requests** or **Pull requests → Settings**. Preferences are stored under `$PASEO_HOME/plugin-data/paseo-pr/settings.json`.
 
 Plugins are installed per daemon. The path or Git clone lives on the host running the daemon, not on the machine where you open the Paseo app.
 
